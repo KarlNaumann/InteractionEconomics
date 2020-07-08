@@ -1,0 +1,20 @@
+\begin{table}[htpb]
+\centering
+\caption{Variables of the dynamic model} \label{tab_vars}
+\begin{tabular}{lll}
+\toprule
+Symbol & Name & Description \\
+\midrule
+$s$ & sentiment & \\
+$h$ & information & \\
+$p$ & price & \\
+$\tau_i$ & Characteristic timeframe & $tau_s>>tau_h$\\
+$\beta_1$ & \makecell[tl]{Sensitivity of $\dot{s}$ to avg. $s$} & Mean field approximation $s$\\
+$\beta_2$ & \makecell[tl]{Sensitivity of $\dot{s}$ to avg. $h$} & Mean field approximation $h$\\
+$k_1$ & \makecell[tl]{Sensitivity $\dot{h}$ to $\dot{p}$} & \makecell[tl]{Feedback cycle for price \\changes to sentiment} \\
+$\xi_t$ & Exogenous news flow & \\
+$c_1$ & \makecell[tl]{Sensitivity of $p$ to $\dot{s}$} & \makecell[tl]{short-term allocations only \\occur when sentiment changes} \\
+$c_2$ & \makecell[tl]{Sensitivity of $p$ \\to sentiment divergence} & \makecell[tl]{long-term allocations with reference \\to long-term growth expectations}\\
+\bottomrule
+\end{tabular}
+\end{table}

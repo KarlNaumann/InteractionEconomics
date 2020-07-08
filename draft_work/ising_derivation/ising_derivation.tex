@@ -1,0 +1,143 @@
+\documentclass[11pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[margin=1.0in]{geometry}
+
+\usepackage{amssymb, amsmath} % general math
+\usepackage{bbm} % bold math symbols
+
+\usepackage{ctable} % table formatting
+\usepackage{makecell} % linebreak in table cells
+
+\setlength{\parindent}{0pt}
+
+\begin{document}
+\begin{center}
+\huge
+Derivation of the Generalised Ising Framework
+\end{center}
+
+\section{Dynamical System}
+The complete dynamical system for the stock-market is described by
+\begin{subequations}
+\begin{align}
+\tau_s \dot{s}&=-s + \tanh( \beta_1 s + \beta_2 h) \label{eq_sentiment}\\
+\tau_h \dot{h}&=-h + \tanh(k_1 \dot{p} + \xi_t)\label{eq_info}\\
+\dot{p}&=c_1 \dot{s} + c_2 (s - s_\star)\label{eq_price}
+\end{align}
+\end{subequations}
+with $\dot{x}$ denoting the derivative of $x$ with respect to time, and the variable definitions are given in Table \ref{tab_vars}.
+
+\input{tab_vars.tex}
+
+\section{Derivation of the sentiment dynamics}
+
+There is a large group of $i\in\{1,\dots,N\}$ investors who each have a sentiment $s_i\in\{-1,1\}$. The fraction of investors that are optimists ($s_i=1$) is given by $n_+=\frac{N_+}{N}$ (pessimists with $s_i=-1$ have fraction $n_-=\frac{N_-}{N}$).
+The average sentiment is thus $s=n_+ - n_-$ with $n_- + n_+ = 1$, which leads to the definitions
+\begin{subequations}\label{eq_n_to_s}
+\begin{align}
+n_- &= \frac{1-s}{2} \\
+n_+ &= \frac{1+s}{2}
+\end{align}
+\end{subequations}
+
+Conceptually agent sentiment is affected by
+\begin{enumerate}
+\item The \textbf{sentiment of the other agents} ($s$) they are around, who influence the sentiment of $i$ to co-align with their own. We take a mean-field approximation. 
+\item The \textbf{opinion of analysts} ($h$), which also aim to co-align investor sentiment with their own sentiment. Again, a mean-field approximation is taken.
+\end{enumerate}
+The \textit{Force} acting on investor sentiment is the sum of interaction ($s$) and dissemination ($h$), yielding
+\begin{equation}
+F(s,h) = \beta_1s + \beta_2h
+\end{equation}
+However, this is deterministic. Investor sentiment might change due to idiosyncrasies. Thus, we define the \textit{transition probabilities} for agents to switch from negative (positive) to positive (negative) sentiment as $p^{-+}$ ($p^{+-}$). The relation between these probabilities is proportional to the force $F$ acting on sentiment. Specifically:
+\begin{subequations}
+\begin{align}
+p^{+-} &= p^{-+} \quad \textrm{if}~F = 0\\
+p^{+-} &> p^{-+} \quad \textrm{if}~F < 0\\
+p^{+-} &< p^{-+} \quad \textrm{if}~F > 0
+\end{align}
+\end{subequations}
+
+The discrete development of $n_-$ and $n_+$ is then given by
+\begin{subequations}\label{eq_discrete_transition} 
+\begin{align}
+n_+(t + \Delta t) &= n_+(t) + \Delta t \left( n_-(t) p^{-+}(t) - n_+(t) p^{+-}(t) \right)\\
+n_-(t + \Delta t) &= n_-(t) + \Delta t \left( n_+(t) p^{+-}(t) - n_-(t) p^{-+}(t) \right)
+\end{align}
+\end{subequations}
+
+Using the relationship between $n$ and $s$ from Eqs. \ref{eq_n_to_s} the relations of Eq \eqref{eq_discrete_transition} become
+\begin{equation}
+\frac{s(t+\Delta t) - s(t)}{\Delta t} = (1-s(t))p^{-+}(t) + (1+s(t))p^{+-}(t)
+\end{equation}
+
+Taking the limit $\Delta t \rightarrow 0$ yields
+\begin{equation}\label{eq_cont_transition}
+\dot{s} = (1-s)p^{-+} - (1+s)p^{+-}
+\end{equation}
+
+To relate the transition probabilities to the proportion of investors who are optimists / pessimists, the equilibrium can be used.
+\begin{align}
+n_\pm(t+\Delta t) - n_\pm(t)&= 0\\
+n_-(t) p^{-+}(t) - n_+(t) p^{+-}(t) &= 0\\
+\frac{p^{-+}}{p^{+-}} &= \frac{n_+}{n_-}\label{eq_eq_relation}
+\end{align}
+
+\textbf{Assumption}: the transition rates are the same inside and outside of equilibrium.\\
+
+The transition probabilities are related to the force, $F$, acting on the sentiment, i.e. $g = \frac{n_+}{n_-}\sim F$. Specifically, we assume that the relationship is of the form
+\begin{equation}\label{eq_f_to_p}
+\frac{\partial g}{g}=\alpha\partial F\quad\quad \alpha>0
+\end{equation}
+which implies
+\begin{equation}\label{eq_prop_p_f}
+\frac{n_+}{n_-}= \frac{p^{-+}}{p^{+-}} = e^{\alpha F}
+\end{equation}
+
+\textbf{Assumption}: the relation between the relative transition rates and the force $F$ is of the form presented in Eq. \eqref{eq_f_to_p}
+
+Let $\tau_s$ be the characteristic time over which random disturbances lead to a change of $s_i$. This is equivalent to the total time over which the probability that $s_i$ flips is equal to unity, which translates to
+\begin{equation}\label{eq_flip_unity}
+\tau_s (p^{+-} + p^{-+}) = 1
+\end{equation}
+The relationship of Eq. \eqref{eq_flip_unity} assumes that the agents state after an interaction is independent of the initial state. Then the Markov chain properties lead to this relationship.
+
+Combining the relations of Eq. \eqref{eq_prop_p_f} and Eq. \eqref{eq_flip_unity} yields
+\begin{align}
+p^{-+} &= \frac{1}{\tau_s\left( 1 + e^{-\alpha F}\right)}\\
+p^{+-} &= \frac{1}{\tau_s\left( 1 + e^{\alpha F}\right)}
+\end{align}
+
+Using the derivation of Gusev Et. Al (2015, appendix A), this relationship together with the definition of $\dot{s}$ and $F$ yields the relationship
+\begin{equation}
+\tau_s \dot{s}=-s + \tanh( \beta_1 s + \beta_2 h) 
+\end{equation}
+where $\frac{\alpha}{2}$ is absorbed into $\beta_1$ and $\beta_2$. 
+
+The relationship for $h$ can be derived in a similar manner. However, for $h$ the force acting on the analyst sentiment is defined as 
+\begin{equation}
+F_h = k_1 \dot{p} + \xi_t
+\end{equation}
+on the basis of the following observations:
+\begin{enumerate}
+\item The \textit{time-to-market} of news (from discovery to publication) is very short, and journalism operates on a non-collaborative basis, which implies that the interactions term for the analysts is omitted. 
+\item Thus, the newsflow can be split into two key components: the newsflow modulation from changes in the stock price $\dot{p}$, which represents a feedback effect, and the arrival of random news $\xi_t$.
+\end{enumerate}
+
+\section{Price-Sentiment relation}
+The price of a security changes as a function of the trades that are made by investors. In this framework trades are made on the basis of investor sentiment. The price sentiment relation (Eq. \eqref{eq_price}) is established on the basis of two observations
+\begin{enumerate}
+\item in the \textbf{short-term} an agent has a pre-existing allocation, and would only change their allocation if their sentiment changes in reference to the prior level of sentiment (i.e. they recall sentiment). This implies that for $t<<\tau_s$ we have $\dot{p}\sim\dot{s}$.
+\item In the \textbf{long-run} an agent makes their allocation decision based on the sentiment level itself. In contrast to the short-run, the prior sentiment wont be in the agent's memory.  Hence, at timescales $t>>\tau_s$ we have $\dot{p}\sim s$. 
+
+This leads to the formulation 
+\begin{equation}
+\dot{p}=c_1 \dot{s} + c_2 s + c_3
+\end{equation}
+that can be re-written as 
+\begin{equation}
+\dot{p}=c_1 \dot{s} + c_2 (s - s_\star)
+\end{equation}
+with $s_\star = -\frac{c_3}{c_2}\neq 0$, such that $s_\star$ can be seen as ``an implied reference sentiment level that investors areaccustomed to and consider normal.'' (Gusev Et Al, 2015). Gusev Et Al (2015) also find that ``in the leading order $s_\star$ coincides with the equilibrium value of sentiment'', which is determined by $\beta_1$ (equilibrium with $\dot{s}=h=0$.
+\end{enumerate}
+\end{document}
