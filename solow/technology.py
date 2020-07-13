@@ -26,17 +26,21 @@ class TechProcess(object):
         levels  :   list
             technology levels across periods
 
-        Methods
-        -------
+        Public Methods
+        --------------
         update
             update the technology level from one period to the next
 
         get_levels
             return the technology levels as an np.array
+
+        full_tech
+            generate and return the entire technology series for a given length
+            of time
         """
 
         options = {
-            'deterministic': self.deterministic
+            'deterministic': self._deterministic
         }
 
         self.process_type = process
@@ -88,7 +92,7 @@ class TechProcess(object):
 
         return tech_process
 
-    def deterministic(self, epsilon: float, a0: float):
+    def _deterministic(self, epsilon: float):
         """ Update the deterministic trend
 
         Parameters
@@ -103,3 +107,6 @@ class TechProcess(object):
         """
         self.technology *= np.exp(epsilon)
         self.levels.append(self.technology)
+
+    def _ornstein_uhlenbeck(self):
+        pass
