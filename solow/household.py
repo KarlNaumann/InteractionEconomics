@@ -55,8 +55,9 @@ class Household(object):
             self.incomes.append(income)
             self.dividends.append(dividend)
 
-            consumption = (1-self.kappa) * income
-            investment = self.kappa * income
+            tot_income = income + dividend
+            consumption = (1-self.kappa) * tot_income
+            investment = self.kappa * tot_income
 
             return consumption, investment
 
