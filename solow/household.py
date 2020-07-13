@@ -1,5 +1,6 @@
 import numpy as np
 
+
 class Household(object):
     def __init__(self, kappa: float):
         """ Household class for the dynamic Solow model. At this point the
@@ -34,37 +35,37 @@ class Household(object):
         self.incomes = []
         self.dividends = []
 
-        def update(self, income: float, dividend: float):
-            """
+    def update(self, income: float, dividend: float):
+        """
 
-            Parameters
-            ----------
-            income      :   float
-                income from production received
-            dividends   :   float
-                income from dividends due to firm ownership
+        Parameters
+        ----------
+        income      :   float
+            income from production received
+        dividends   :   float
+            income from dividends due to firm ownership
 
-            Returns
-            -------
-            consumption :   float
-                income spent on consumption
-            investment  :   float
-                income spent on savings
-            """
+        Returns
+        -------
+        consumption :   float
+            income spent on consumption
+        investment  :   float
+            income spent on savings
+        """
 
-            self.incomes.append(income)
-            self.dividends.append(dividend)
+        self.incomes.append(income)
+        self.dividends.append(dividend)
 
-            tot_income = income + dividend
-            consumption = (1-self.kappa) * tot_income
-            investment = self.kappa * tot_income
+        tot_income = income + dividend
+        consumption = (1 - self.kappa) * tot_income
+        investment = self.kappa * tot_income
 
-            return consumption, investment
+        return consumption, investment
 
-        def get_income(self):
-            """Function to get incomes as np.array"""
-            return np.array(self.incomes)
+    def get_income(self):
+        """Function to get incomes as np.array"""
+        return np.array(self.incomes)
 
-        def get_dividends(self):
-            """Function to get dividends as np.array"""
-            return np.array(self.dividends)
+    def get_dividends(self):
+        """Function to get dividends as np.array"""
+        return np.array(self.dividends)
