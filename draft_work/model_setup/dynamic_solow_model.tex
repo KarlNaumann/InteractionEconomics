@@ -26,7 +26,7 @@ Dynamic Solow Model
 There are a large number of firms producing a single good in a perfectly competitive market. This implies that the price of the good can be used as a numeraire, and treated as 1 going forward. We can reduce the analysis to that of a representative firm producing output based on the Cobb-Douglas production function
 
 \begin{equation}\label{eq_discrete_prod}
-Y_t = A_tK_t^{\rho} \quad \textrm{with}\quad A_t=ce^{\varepsilon t}
+Y_t = A_tK_t^{\rho} \quad \textrm{with}\quad A_t=A_0e^{\varepsilon t}
 \end{equation}
 
 where $Y_t$ is the production per capita, $K_t$ is the capital per capita, $\rho\in (0,1)$ is the capital share of production, and $A_t$ is the level of technology (total factor productivity). Importantly, it is assumed that the population $N_t$ grows at an exogenously determined rate $n$, i.e. $N_t = N_0e^{nt}$.
@@ -134,6 +134,8 @@ w_t =(1-\rho)A_tK_t^{\rho}
 \subsection{Equilibria}
 The dynamic system that determines the change in capital demand has three equilibria when $\xi_t=0~\forall t$, two of which are stable. These are denoted by $s^{+}$ in the positive sentiment well, and $s^{-}$ in the negative sentiment well. Based on the definition of these equilibria, the capital demand of equation \eqref{eq_dyn_kd} is either $\dot{k}^{+} = c_2s^{+} + c_3                                                                                                                                                                                                                                                                       $ or $\dot{k}^{-} = c_2s^{-}+c_3$.
 
+{\color{red} Need to determine the speed of $\dot{K_s}$ to determine speed of convergence - requires $\dot{y}$ and $\dot{\psi}$}
+
 \subsubsection{Growth Equilibrium $s^{+}$}
 In the case of $s^{+}$, $\dot{k}^{+}>0$ as $c_2>0$ and $c_3\geq0$. This implies that capital demand is increasing perpetually, which leads to the situation where $K_s<K_d$ for $T\rightarrow\infty$. In other words,  we converge to the balanced growth path that is the solution to the classical Solow model where all of the available capital is invested into production.
 
@@ -150,6 +152,23 @@ In the negative well $s^{-}$, capital changes at a rate of $\dot{k}^{-} = c_2 s^
 \item $s^{-} > -\frac{c_3}{c_2}$ implies $\dot{k}^{-}>0$, in which case eventually we arrive in the same scenario as for the positive well $s^{+}$
 \item $s^{-} = -\frac{c_3}{c_2}$ implies $\dot{k}^{-}=0$
 \end{enumerate} 
+
+\section{Summary of General Assumptions}
+\begin{enumerate}
+\item Households
+	\begin{enumerate}
+	\item A large number of identical households, admitting a \textit{representative household}
+	\item Saving, $\kappa$, is a constant fraction of income
+	\item Households own all labour and supply their full labour inelastically
+	\end{enumerate}
+\item Production
+	\begin{enumerate}
+	\item All firms have access to the same production function, admitting a \textit{representative firm} with an aggregate production function
+	\item Technology is free and available (non-excludable, non-rivalrous)
+	\item Continuity, Differentiability, Positive and Diminishing Marginal Products, and Constant Returns to Scale
+	\item the market for the aggregate good is perfectly competitive
+	\end{enumerate}
+\end{enumerate}
 
 \section{Analysis and open Decisions}
 \begin{itemize}
