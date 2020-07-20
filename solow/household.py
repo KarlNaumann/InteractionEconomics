@@ -2,27 +2,27 @@ import numpy as np
 
 
 class Household(object):
-    def __init__(self, kappa: float):
+    def __init__(self, savings_rate: float):
         """ Household class for the dynamic Solow model. At this point the
         household receives income and saves a proportion of this.
 
         Parameters
         ----------
-        kappa   :   float
+        savings_rate   :   float
             constant savings rate
 
         Attributes
         ----------
-        kappa       :   float
+        savings_rate       :   float
             constant savings rate
-        incomes     :   list of float
+        income_history     :   list of float
             incomes received during the update method
-        dividends   :   list of float
+        dividend_history   :   list of float
             dividends received during the update method
 
         Methods
         -------
-        update
+        consumption
             function that takes the households income from firm production and
             from dividends and returns the consumption and investment
         get_income
@@ -31,18 +31,18 @@ class Household(object):
             returns the dividends received as np.array
         """
 
-        self.kappa = kappa
-        self.incomes = []
-        self.dividends = []
+        self.savings_rate = savings_rate
+        self.income_history = []
+        self.dividend_history = []
 
-    def update(self, income: float, dividend: float):
+    def consumption(self, income: float, dividend: float):
         """
 
         Parameters
         ----------
         income      :   float
             income from production received
-        dividends   :   float
+        dividend    :   float
             income from dividends due to firm ownership
 
         Returns
@@ -53,19 +53,19 @@ class Household(object):
             income spent on savings
         """
 
-        self.incomes.append(income)
-        self.dividends.append(dividend)
+        total_income = income + dividend
+        self.income_history.append(total_income)
+        self.dividend_history.append(dividend)
 
-        tot_income = income + dividend
-        consumption = (1 - self.kappa) * tot_income
-        investment = self.kappa * tot_income
+        consumption = (1 - self.savings_rate) * total_income
+        investment = self.savings_rate * total_income
 
         return consumption, investment
 
     def get_income(self):
         """Function to get incomes as np.array"""
-        return np.array(self.incomes)
+        return np.array(self.income_history)
 
     def get_dividends(self):
         """Function to get dividends as np.array"""
-        return np.array(self.dividends)
+        return np.array(self.dividend_history)
