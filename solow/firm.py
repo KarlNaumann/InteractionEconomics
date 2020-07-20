@@ -18,20 +18,18 @@ class Firm(object):
 
         Attributes
         ----------
-        production  :   float
-            most recent level of production
-        levels  :   dict
+        production_history  :   dict
             production levels across time
 
         Public Methods
         --------------
-        update
+        production
             returns the production and updates attributes based on the given
             inputs to production
         """
-        self.levels = []
-        self.production = 0
+        self.production_history = []
         self.prod_func = prod_func
+        self.param_kwargs = parameters
 
         prod_funcs = {
             'cobb-douglas': self._cobb_douglas,
@@ -43,7 +41,7 @@ class Firm(object):
         except KeyError:
             'Production function not in available options'
 
-    def update(self, inputs: dict):
+    def production(self, inputs: dict):
         """ Update the production for the period
 
         Parameters
@@ -57,9 +55,9 @@ class Firm(object):
         production  :   float
             current level of per capita production
         """
-        self.production = self.production_function(**inputs, **self.parameters)
-        self.levels.append(self.production)
-        return self.production
+        curr_production = self.production_function(**inputs, **self.param_kwargs)
+        self.production_history.append(curr_production)
+        return curr_production
 
     def _cobb_douglas(self, k: float = 1, n: float = 1, tech: float = 1,
                       rho: float = 0.25):

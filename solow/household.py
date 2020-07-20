@@ -38,6 +38,8 @@ class Household(object):
             returns np.array version of incomes list
         get_dividends
             returns the dividends received as np.array
+        get_savings_rate
+            returns the saving rates as np.array
         """
 
         self.savings_rate = savings_rate
@@ -144,3 +146,7 @@ class Household(object):
     def get_dividends(self):
         """Function to get dividends as np.array"""
         return np.array(self.dividend_history)
+
+    def get_savings_rate(self):
+        """Function to get savings rates as np.array"""
+        return np.array(self.saving_rate_history)
