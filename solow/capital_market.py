@@ -2,8 +2,8 @@ import numpy as np
 
 
 class CapitalMarket(object):
-    def __init__(self, static: bool = True,depreciation: float = 0.2,
-                 dynamic_kwargs: dict = {}):
+    def __init__(self, static: bool = True, depreciation: float = 0.2,
+                 pop_growth: float = 0.005, dynamic_kwargs: dict = {}):
         """ Household class for the dynamic Solow model. At this point the
         household receives income and saves a proportion of this.
 
@@ -14,6 +14,8 @@ class CapitalMarket(object):
             capital demand version
         depreciation    :   float
             Rate of depreciation for the capital that is invested
+        pop_growth      :   float
+            population growth rate
         dynamic_kwargs  :   dict
             parameters to pass to the dynamic capital demand system. Include:
             { tau_s: float, beta1: float, beta2: float, omega_h: float,
@@ -46,7 +48,8 @@ class CapitalMarket(object):
         self.v_ks = []
 
         self.depreciation = depreciation
-        self.static = static
+        self.pop_growth = pop_growth
+        self.dyn_demand = not static
         self.d_kwargs = dynamic_kwargs
 
     def demand_velocity(self, s: float, h: float, news: float,
@@ -65,7 +68,7 @@ class CapitalMarket(object):
         news    :   float
             Exogenous news
         d_production    :   float
-            velocity of production
+            velocity of log production
 
         Returns
         -------
@@ -74,13 +77,13 @@ class CapitalMarket(object):
         v_h     :   float
             Change in the information level
         v_kd    :   float
-            Change in the capital demand
+            Change in the log capital demand
         """
-        if self.static:
+        if not self.dyn_demand:
             self.v_h.append(0)
             self.v_s.append(0)
             # If capital always = K_s, then change in K_d = change in K_s
-            self.v_kd.append(self.v_s)
+            self.v_kd.append(self.v_ks[-1])
         else:
             # Sentiment process
             force_s = self.d_kwargs['beta1'] * s + self.d_kwargs['beta2'] * h
@@ -89,7 +92,9 @@ class CapitalMarket(object):
             force_h = self.d_kwargs['gamma'] * d_production + news
             self.v_h.append((-h + np.tanh(force_h)) / self.d_kwargs['tau_h'])
             # Demand velocity based on new sentiment velocity
-            self.v_kd.append(self.c1 * self.v_s[-1] + self.c2 * s + self.c3)
+            self.v_kd.append(sum([self.d_kwargs['c1'] * self.v_s[-1],
+                                  self.d_kwargs['c2'] * s,
+                                  self.d_kwargs['c3']]))
 
         return self.v_kd[-1], self.v_s[-1], self.v_h[-1]
 
@@ -107,6 +112,6 @@ class CapitalMarket(object):
         -------
         v_ks    :   change in the supply of capital
         """
-        self.v_ks.append(investment - self.depreciation * capital)
-        return self.v_ks[-1]
-
+        v_ks = investment - (self.depreciation + self.pop_growth) * capital
+        self.v_ks.append(v_ks)
+        return v_ks

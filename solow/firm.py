@@ -12,6 +12,10 @@ class Firm(object):
                 (1) The Cobb-Douglas production function. Parameters must
                 include:
                     rho :   float - capital share of production
+                    tau-y : float - characteristic timescale of production
+                (2) The Leontief production function. Parameters may be an empty
+                dictionary
+                    tau-y : float - characteristic timescale of production
 
         parameters  :   dict, default={}
             keyword arguments for the production function (see prod_tech above)
@@ -28,6 +32,8 @@ class Firm(object):
             inputs to production
         """
         self.production_history = []
+        self.wage_history = []
+        self.interest_history = []
         self.prod_func = prod_func
         self.param_kwargs = parameters
 
@@ -37,7 +43,7 @@ class Firm(object):
         }
 
         try:
-            self.production_function = prod_funcs[prod_func]
+            self.function = prod_funcs[prod_func]
         except KeyError:
             'Production function not in available options'
 
@@ -55,12 +61,10 @@ class Firm(object):
         production  :   float
             current level of per capita production
         """
-        curr_production = self.production_function(**inputs, **self.param_kwargs)
-        self.production_history.append(curr_production)
-        return curr_production
+        self.production_history.append(self.function(**inputs, **self.param_kwargs))
+        return self.production_history[-1]
 
-    def _cobb_douglas(self, k: float = 1, n: float = 1, tech: float = 1,
-                      rho: float = 0.25):
+    def _cobb_douglas(self, k: float = 1, n: float = 1, tech: float = 1, **kwargs):
         """ Cobb-Douglas production function Y=A K^rho N^(1-rho)
 
         Parameters
@@ -71,17 +75,16 @@ class Firm(object):
             level of labour in production
         tech    :   float, default = 1
             level of technology for production
-        rho     :   float, default = 0.25
-            capital share in production
 
         Returns
         -------
         production  :   float
             per capita output to production
         """
+        rho = self.param_kwargs['rho']
         return tech * (k ** rho) * (n ** (1 - rho))
 
-    def _leontief(self, k: float = 1, n: float = 1, tech: float = 1):
+    def _leontief(self, k: float = 1, n: float = 1, tech: float = 1, **kwargs):
         """ Leontief production function Y=A max(K,N). In per capita case, n=1
 
         Parameters
@@ -99,3 +102,21 @@ class Firm(object):
             per capita output of production
         """
         return tech * np.maximum(k, n)
+
+    def production_velocity(self, curr_prod: float, new_prod: float):
+        """ Velocity of  production
+
+        Parameters
+        ----------
+        curr_prod   :   float
+            current level of production
+        new_prod    :   float
+            new level of production
+
+        Returns
+        -------
+        velocity    :   float
+            velocity of production adjusted for the characteristic timescale
+        """
+
+        return (new_prod - curr_prod) / self.param_kwargs['tau_y']

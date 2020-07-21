@@ -24,8 +24,8 @@ class Household(object):
             constant savings rate
         income_history     :   list of float
             total income received across time
-        dividend_history   :   list of float
-            dividends received across time
+        excess_history   :   list of float
+            any excess capital supply received across time
         saving_rate_history:   list of float
             savings rate over time
 
@@ -45,19 +45,19 @@ class Household(object):
         self.savings_rate = savings_rate
         self.static = static
         self.income_history = []
-        self.dividend_history = []
+        self.excess_history = []
         self.saving_rate_history = []
         self.dynamic_kwargs = dynamic_kwargs
 
-    def consumption(self, income: float, dividend: float):
+    def consumption(self, income: float, excess: float):
         """
 
         Parameters
         ----------
         income      :   float
             income from production received
-        dividend    :   float
-            income from dividends due to firm ownership
+        excess    :   float
+            return of excess capital supply
 
         Returns
         -------
@@ -67,9 +67,9 @@ class Household(object):
             income spent on savings
         """
 
-        tot_income = income + dividend
+        tot_income = income + excess
         self.income_history.append(tot_income)
-        self.dividend_history.append(dividend)
+        self.excess_history.append(excess)
 
         if self.static:
             self.saving_rate_history.append(self.savings_rate)

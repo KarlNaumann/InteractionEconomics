@@ -43,12 +43,15 @@ class SolowModel(object):
         ----------
         SolowModel instance
         """
+        # Entities and Variables
         self.tech_rate = tech_rate
-
         self.firm = Firm(**firm_kwargs)
         self.household = Household(**hh_kwargs)
         self.capital_market = CapitalMarket(**capital_kwargs)
         self.ou_process = OrnsteinUhlenbeck(**ou_kwargs)
+
+        # Storage
+        self.path = None
 
     def solve(self, initial_values: list, t0: float = 0, t_end: float = 1e2):
         """ Iterate through the Solow model to generate a path for output,
@@ -76,6 +79,18 @@ class SolowModel(object):
         path = solve_ivp(self._step, t_span=(t0, t_end), y0=initial_values,
                          method='RK45', t_eval=np.arange(int(t0), int(t_end) - 1),
                          args=(entities, self.ou_process, self.tech_rate))
+        
+        """
+        t = np.linspace(t0, t_end, 5 * (int(t_end) - int(t0)))
+        path = np.zeros((t.shape[0], len(initial_values)))
+        path[0, :] = initial_values
+        for i, t in enumerate(np.arange(int(t0), int(t_end))):
+            delta = self._step(t, list(path[i - 1, :]), entities, self.ou_process,
+                               self.tech_rate)
+            path[i, :] = path[i - 1, :] + delta
+        """
+
+        self.path = path
 
         return path
 
@@ -106,11 +121,8 @@ class SolowModel(object):
             ordered list of the updated parameters
         """
         # Extract parameters
-        production, kd, ks, sentiment, information, tech = values
+        production, ks, kd, sentiment, information, tech = values
         v_tech = tech_rate * tech
-
-        # Compute the next news
-        news = ou_process.euler_maruyama(t)
 
         # Determine the capital level and excess
         if entities['capital_market'].dyn_demand:
@@ -135,6 +147,7 @@ class SolowModel(object):
 
         # Determine the velocity of capital demand
         if entities['capital_market'].dyn_demand:
+            news = ou_process.euler_maruyama(t)
             v_kd, v_s, v_h = entities['capital_market'].demand_velocity(sentiment,
                                                                         information,
                                                                         news,
@@ -148,9 +161,6 @@ class SolowModel(object):
         # [production, capital supply, capital demand, sentiment, information, tech]
         return [v_y, v_ks, v_kd, v_s, v_h, v_tech]
 
-
-    def _tech_level(self,t:float):
-        """Determine the level of technology"""
 
 if __name__ == "__main__":
     hh_kwargs = {'savings_rate': 0.3, 'static': True}
