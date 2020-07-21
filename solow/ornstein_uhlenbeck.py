@@ -40,6 +40,7 @@ class OrnsteinUhlenbeck(object):
         self.diffusion = diffusion
 
         self.history = [self.drift]
+        self.history2 = [self.drift]
         self.points = [t0]
 
     def euler_maruyama(self, t: float, rand: float = None):
@@ -62,14 +63,31 @@ class OrnsteinUhlenbeck(object):
         # Generate a N(0,1) random variable if not provided yet
         rand = rand if rand is not None else np.random.normal(0, 1)
 
+        # ODE algo may be adaptive and go backwards in between -> find the
+        # closest timestep that is smaller
+        i = 1
+        while self.points[-i] >= t:
+            i += 1
+            if i > len(self.points):
+                i = len(self.points)
+                break
         # Determine the interval
-        delta = t - self.points[-1]
+        delta = t - self.points[-i]
         self.points.append(t)
 
         # Next realisation as function of prior realisation
-        prior = self.history[-1]
+        prior = self.history[-i]
         b_xt = self.decay * (self.drift - prior)
-        x_next = prior + delta * b_xt + self.diffusion * np.sqrt(delta) * rand
+        x_next = prior + delta * b_xt + (self.diffusion * np.sqrt(delta) * rand)
         self.history.append(x_next)
+        self.history2 = self.history2[:-i+1]
+        self.history2.append(x_next)
+
+        #print("OU Process:")
+        #print("i:\t",i)
+        #print("delta:\t", delta)
+        #print("bxt:\t", b_xt)
+        #print("diff_term:\t", self.diffusion * np.sqrt(delta) * rand)
+        #print("news:\t",x_next)
 
         return x_next
