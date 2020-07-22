@@ -40,7 +40,6 @@ class OrnsteinUhlenbeck(object):
         self.diffusion = diffusion
 
         self.history = [self.drift]
-        self.history2 = [self.drift]
         self.points = [t0]
 
     def euler_maruyama(self, t: float, rand: float = None):
@@ -80,14 +79,5 @@ class OrnsteinUhlenbeck(object):
         b_xt = self.decay * (self.drift - prior)
         x_next = prior + delta * b_xt + (self.diffusion * np.sqrt(delta) * rand)
         self.history.append(x_next)
-        self.history2 = self.history2[:-i+1]
-        self.history2.append(x_next)
-
-        #print("OU Process:")
-        #print("i:\t",i)
-        #print("delta:\t", delta)
-        #print("bxt:\t", b_xt)
-        #print("diff_term:\t", self.diffusion * np.sqrt(delta) * rand)
-        #print("news:\t",x_next)
 
         return x_next
