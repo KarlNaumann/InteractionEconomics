@@ -31,9 +31,6 @@ class Firm(object):
             returns the production and updates attributes based on the given
             inputs to production
         """
-        self.production_history = []
-        self.wage_history = []
-        self.interest_history = []
         self.prod_func = prod_func
         self.param_kwargs = parameters
 
@@ -61,8 +58,7 @@ class Firm(object):
         production  :   float
             current level of per capita production
         """
-        self.production_history.append(self.function(**inputs, **self.param_kwargs))
-        return self.production_history[-1]
+        return self.function(**inputs, **self.param_kwargs)
 
     def _cobb_douglas(self, k: float = 1, n: float = 1, tech: float = 1, **kwargs):
         """ Cobb-Douglas production function Y=A K^rho N^(1-rho)
