@@ -44,38 +44,25 @@ class Household(object):
 
         self.savings_rate = savings_rate
         self.static = static
-        self.income_history = []
-        self.excess_history = []
-        self.saving_rate_history = []
         self.dynamic_kwargs = dynamic_kwargs
 
-    def consumption(self, income: float, excess: float):
-        """
+    def consumption(self, income: float):
+        """ Determine a households consumption
 
         Parameters
         ----------
         income      :   float
-            income from production received
-        excess    :   float
-            return of excess capital supply
 
         Returns
         -------
         consumption :   float
-            income spent on consumption
         investment  :   float
-            income spent on savings
         """
 
-        tot_income = income + excess
-        self.income_history.append(tot_income)
-        self.excess_history.append(excess)
-
         if self.static:
-            self.saving_rate_history.append(self.savings_rate)
-            return self._static_consumption(tot_income)
+            return self._static_consumption(income)
         else:
-            return self._dynamic_consumption(tot_income, self.income_history[-2])
+            return self._dynamic_consumption(income)
 
     def _static_consumption(self, total_income: float):
         """ Apply the standard constant savings rate approach
@@ -102,7 +89,6 @@ class Household(object):
         # savings rate based on the s-shaped function
         self.savings_rate = self._shifted_logistic(prior_income,
                                                    **self.dynamic_kwargs)
-        self.saving_rate_history.append(self.savings_rate)
 
         consumption = (1 - self.savings_rate) * total_income
         investment = self.savings_rate * total_income
