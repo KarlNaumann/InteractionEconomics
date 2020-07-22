@@ -41,12 +41,6 @@ class CapitalMarket(object):
             differential equation for the capital supply
         """
 
-        # lists to save velocities over time
-        self.v_s = []
-        self.v_h = []
-        self.v_kd = []
-        self.v_ks = []
-
         self.depreciation = depreciation
         self.pop_growth = pop_growth
         self.dyn_demand = not static
@@ -80,23 +74,19 @@ class CapitalMarket(object):
             Change in the log capital demand
         """
         if not self.dyn_demand:
-            self.v_h.append(0)
-            self.v_s.append(0)
-            # If capital always = K_s, then change in K_d = change in K_s
-            self.v_kd.append(self.v_ks[-1])
+            return 0, 0, 0
         else:
             # Sentiment process
             force_s = self.d_kwargs['beta1'] * s + self.d_kwargs['beta2'] * h
-            self.v_s.append((-s + np.tanh(force_s)) / self.d_kwargs['tau_s'])
+            v_s = (-s + np.tanh(force_s)) / self.d_kwargs['tau_s']
             # Information process
             force_h = self.d_kwargs['gamma'] * d_production + news
-            self.v_h.append((-h + np.tanh(force_h)) / self.d_kwargs['tau_h'])
+            v_h = (-h + np.tanh(force_h)) / self.d_kwargs['tau_h']
             # Demand velocity based on new sentiment velocity
-            self.v_kd.append(sum([self.d_kwargs['c1'] * self.v_s[-1],
-                                  self.d_kwargs['c2'] * s,
-                                  self.d_kwargs['c3']]))
-
-        return self.v_kd[-1], self.v_s[-1], self.v_h[-1]
+            v_kd = sum([self.d_kwargs['c1'] * v_s,
+                        self.d_kwargs['c2'] * s,
+                        self.d_kwargs['c3']])
+            return v_kd, v_s, v_h
 
     def supply_velocity(self, capital: float, investment: float):
         """ Differential function for the change in capital supply
@@ -112,6 +102,4 @@ class CapitalMarket(object):
         -------
         v_ks    :   change in the supply of capital
         """
-        v_ks = investment - (self.depreciation + self.pop_growth) * capital
-        self.v_ks.append(v_ks)
-        return v_ks
+        return investment - (self.depreciation + self.pop_growth) * capital
