@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 from matplotlib import pyplot as plt
 from scipy.integrate import solve_ivp
 
@@ -31,7 +32,7 @@ class SolowModel(object):
                 pop_growth: float = 0.005
                 dynamic_kwargs: dict = {
                     tau_s:float, beta1: float, beta2: float, tau_h:float,
-                    gamma:float, c1: float, c2: float, c3: float
+                    gamma:float, phi:float, c1: float, c2: float, c3: float,
                 } }
         ou_kwargs   :   dict
             Keyword dictionary for the Ornstein Uhlenbeck process. Format:
@@ -48,23 +49,21 @@ class SolowModel(object):
         self.tech_rate = tech_rate
         self.firm = Firm(**firm_kwargs)
         self.household = Household(**hh_kwargs)
-        self.capital_market = CapitalMarket(**capital_kwargs)
+        self.cm = CapitalMarket(**capital_kwargs)
         self.ou_process = OrnsteinUhlenbeck(**ou_kwargs)
 
         # Storage
         self.path = None
 
-    def solve(self, initial_values: list, model: str, t0: float = 0, t_end: float = 1e2):
+    def solve(self, initial_values: dict, t0: float = 0, t_end: float = 1e2):
         """ Iterate through the Solow model to generate a path for output,
         capital (supply & demand), and sentiment
 
         Parameters
         ----------
-        initial_values  :   list
-            initial values in the order: [ production, capital supply,
-            capital demand, sentiment, information ]
-        model   :   str
-            which model to use
+        initial_values  :   dict
+            initial value dictionary, must include 'y','ks','tech'. Can include
+            'kd','s','h'
         t0
         t_end
 
@@ -76,151 +75,153 @@ class SolowModel(object):
         entities = {
             'household': self.household,
             'firm': self.firm,
-            'capital_market': self.capital_market,
+            'capital_market': self.cm,
         }
 
         # Model
-        models = {'draft': self._step_draft, 'excess': self._step_excess}
-        try:
-            f = models[model]
-        except KeyError:
-            "model not in selection"
+        f = self._step
+
+        # Transform the input values
+        initial_values = self._initial_values(initial_values)
 
         # Solve the initial value problem
-        path = solve_ivp(f, t_span=(t0, t_end), y0=initial_values,
+        path = solve_ivp(f, t_span=(t0, t_end), y0=initial_values, max_step=1.0,
                          method='RK45', t_eval=np.arange(int(t0), int(t_end) - 1),
                          args=(entities, self.ou_process, self.tech_rate))
 
         self.path = path
+        self.vars = self._path_df(path.y, t0, t_end)
 
         return path
 
-    @staticmethod
-    def _step_excess(t, values: list, entities: dict, ou_process: OrnsteinUhlenbeck,
-                     tech_rate: float):
-        """ Function that defines the order of operations for the solver of the
-        system.
-
-        Parameters
-        ----------
-        t   :   float
-            time at which the system is evaluated
-        y   :   list
-            ordered list of system parameters - [ production, capital supply,
-            capital demand, sentiment, information ]
-        entities    :   dict
-            dictionary of the different classes {'household','firm',
-            'capital_market'}
-        ou_process  :   OrnsteinUhlenbeck instance
-            ornstein uhlenbeck exogenous noise process
-        tech_rate   :   float
-            technology growth rate
-
-        Returns
-        -------
-        x   :   list
-            ordered list of the updated parameters
-        """
-        # Extract parameters
-        y, ks, kd, s, h, tech, excess, cons = values
-
-        v_tech = tech_rate * tech
-        news = ou_process.euler_maruyama(t)
-
-        # Determine the capital level and excess
-        if entities['capital_market'].dyn_demand:
-            capital = min([ks, kd])
-            v_excess = max([ks - kd, 0]) - excess
-        else:
-            capital = ks
-            v_excess = 0
-            excess = 0
-
-        # Determine new production level and velocity of production
-        y_new = entities['firm'].production({'k': capital, 'n': 1, 'tech': tech})
-        v_y = entities['firm'].production_velocity(curr_prod=y, new_prod=y_new)
-
-        # Household decision
-        consumption, investment = entities['household'].consumption(y)
-        v_cons = consumption + excess - cons
-
-        # Determine the velocity of capital supply
-        v_ks = entities['capital_market'].supply_velocity(capital, investment)
-        v_ks -= excess
-
-        # Convert production velocity to velocity of log
-        v_log_y = v_y / y
-
-        # Determine the velocity of capital demand
-        if entities['capital_market'].dyn_demand:
-            v_kd, v_s, v_h = entities['capital_market'].demand_velocity(s, h, news, v_log_y)
-        else:
-            v_kd, v_s, v_h = [0, 0, 0]
-
-        # Convert velocity of log capital demand to regular capital demand
-        v_kd *= kd
-
-        # [production, capital supply, capital demand, sentiment, information, tech]
-        return [v_y, v_ks, v_kd, v_s, v_h, v_tech, v_excess, v_cons]
-
-    def _step_draft(self, t, values: list, entities: dict, ou_process: OrnsteinUhlenbeck,
-                    tech_rate: float):
+    def _step(self, t, values: list, entities: dict, ou_process: OrnsteinUhlenbeck,
+              tech_rate: float):
 
         # Unpack inputs
-        y, ks, kd, s, h, tech, cons = values
+        y, ks, kd, s, h, tech, cons, excess, r = values
+        # Note: these are the values at period t, and we are going for period t+delta
 
         v_tech = tech_rate * tech
         news = ou_process.euler_maruyama(t)
 
-        # Capital level
-        if entities['capital_market'].dyn_demand:
-            k = min([ks, kd])
-        else:
-            k = ks
-
-        # Determine new production level and velocity of production
-        y_new = entities['firm'].production({'k': k, 'n': 1, 'tech': tech})
-        v_y = entities['firm'].production_velocity(curr_prod=y, new_prod=y_new)
-
-        # Determine consumption and investment
-        consumption, investment = entities['household'].consumption(y_new)
+        # Determine consumption and investment of hh at time t
+        consumption, investment = entities['household'].consumption(y)
         v_cons = consumption - cons
 
-        # Capital supply
+        # Capital level given the supply and demand
+        if entities['capital_market'].dyn_demand:
+            k = min([ks, np.exp(kd)])
+            v_excess = -excess + max([ks - np.exp(kd), 0])
+        else:
+            k = ks
+            v_excess = 0
+
+        # Determine new production level and velocity of production
+        factors = {'k': k, 'n': 1, 'tech': tech}
+        y_new, k_ret = entities['firm'].production(factors)
+        v_y = entities['firm'].production_velocity(curr=y, new=y_new)
+
+        # Effective interest rate earned
+        dep = entities['capital_market'].depreciation
+        pop = entities['capital_market'].pop_growth
+        v_r = -r + (k / ks) * (k_ret - dep) - pop
+
+        # Capital supply ( - depreciation + new investment)
         v_ks = entities['capital_market'].supply_velocity(ks, investment)
 
         # Determine the velocity of capital demand
-        v_ln_y = v_y / y_new
+        v_ln_y = v_y / y  # entities['firm'].production_velocity(curr=y, new=y_new, ln=True)
         if entities['capital_market'].dyn_demand:
-            v_ln_kd, v_s, v_h = entities['capital_market'].demand_velocity(s, h, news, v_ln_y)
+            v_kd, v_s, v_h = entities['capital_market'].demand_velocity(s, h, news, v_ln_y, excess)
         else:
             v_kd, v_s, v_h = [0, 0, 0]
 
-        v_kd = kd * v_ln_kd
+        return [v_y, v_ks, v_kd, v_s, v_h, v_tech, v_cons, v_excess, v_r]
 
-        return [v_y, v_ks, v_kd, v_s, v_h, v_tech, v_cons]
+    def _initial_values(self, given: dict):
+        """ Function to manipulate an initial value dictionary for compatibility
+        with the solver
 
-    def visualise(self):
+        Parameters
+        ----------
+        given   :   dict
+            dictionary of initial values. Must include at least: 'y','ks','tech'
 
-        data = self.path.y
+        Returns
+        -------
+        initial_values  :   list
+            list of initial values for the solver.
+            Order: y, ks, kd, s, h, tech, cons, excess, r
+        """
 
-        fig, ax_lst = plt.subplots(3, 2)
-        fig.set_size_inches(20, 15)
-        # Production and Tech
-        ax_lst[0, 0].plot(self.path.t, data[0, :],label='Production')
+        initial_values = [given['y'], given['ks']]
+        if self.cm.dyn_demand:
+            try:
+                initial_values.extend([given['kd'], given['s'], given['h']])
+            except KeyError:
+                print("For dynamical demand system, provide kd, s and h")
+            excess = max([given['ks'] - np.exp(given['kd']), 0])
+        else:
+            initial_values.extend([np.log(given['ks']), 0, 0])
+            excess = 0
+
+        initial_values.append(given['tech'])
+        initial_values.append(self.household.savings_rate * given['y'])
+        initial_values.append(excess)
+        # Effective interest rate
+        k = min([given['ks'], np.exp(given['kd'])])
+        _, k_ret = self.firm.production({'k': k, 'tech': given['tech']})
+        r = (k / given['ks']) * (k_ret - self.cm.depreciation) - self.cm.pop_growth
+        initial_values.append(r)
+        return initial_values
+
+    @staticmethod
+    def _path_df(array, t0, t_end):
+        """Convert the numpy array outputted by the solve_ivp to a pandas
+        dataframe
+
+        Parameters
+        ----------
+        array   :   np.array
+            rows are the variables and columns are the time
+
+        Returns
+        -------
+        df  :   pd.DataFrame
+        """
+
+        cols = ['y', 'ks', 'kd', 's', 'h', 'tech', 'cons', 'excess', 'r']
+        # index = np.arange(int(t0), int(t_end) - 1)
+        return pd.DataFrame(array.T, columns=cols)  # , index=index)
+
+    def visualise(self, save: str = ''):
+        """ Generate a plot to visualise the outputs"""
+        df = self.vars
+        fig, ax_lst = plt.subplots(4, 2)
+        fig.set_size_inches(15, 10)
+
+        # Production and growth
+        ax_lst[0, 0].plot(df.loc[:, 'y'])
         ax_lst[0, 0].set_title('Production')
-        ax_lst[0, 0].plot(self.path.t, data[-1],label='Consumption')
-        ax_lst[0, 0].legend()
+        ax_lst[0, 1].plot(df.loc[:, 'y'].pct_change())
+        ax_lst[0, 1].set_title('Production Growth Rates')
+
         # Capital Markets
-        ax_lst[1, 0].plot(self.path.t, data[1, :], label='Supply')
-        ax_lst[1, 0].plot(self.path.t, data[2, :], label='Demand')
+        ax_lst[1, 0].plot(np.exp(df.loc[:, 'kd']), label='Demand')
+        ax_lst[1, 0].plot(df.loc[:, 'ks'], label='Supply')
         ax_lst[1, 0].legend()
-        ax_lst[1, 0].set_title('Capital Markets')
-        ax_lst[1, 1].plot(self.path.t, np.minimum(data[1, :], data[2, :]))
-        ax_lst[1, 1].set_title('Capital Applied')
+        ax_lst[1, 0].set_title('Capital Supply and Demand')
+        ax_lst[1, 1].plot(df.loc[:, 'r'])
+        ax_lst[1, 1].set_title('Effective Interest Rate')
+
         # Capital Demand Dynamics
-        ax_lst[2, 0].plot(self.path.t, data[3, :])
+        ax_lst[2, 0].plot(df.loc[:, 's'])
         ax_lst[2, 0].set_title('Sentiment')
-        ax_lst[2, 1].plot(self.path.t, data[4, :])
+        ax_lst[2, 1].plot(df.loc[:, 'h'])
         ax_lst[2, 1].set_title('Information')
+
+        plt.tight_layout()
+
+        if save is not '':
+            plt.savefig(save, bbox_inches='tight')
         plt.show()
