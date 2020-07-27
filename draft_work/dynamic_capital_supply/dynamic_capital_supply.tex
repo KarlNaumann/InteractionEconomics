@@ -1,0 +1,88 @@
+\documentclass[11pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[margin=1.0in]{geometry}
+
+% Mathematics
+\usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage{bbm}
+
+\usepackage{sectsty}
+\sectionfont{\fontsize{12}{15}\selectfont}
+
+\begin{document}
+% Title
+\begin{center}
+\Large 
+Self-reflexive Capital Supply in the Dynamic Solow Model
+\end{center}
+
+% Solow review
+\section{The Dynamic Solow Model}
+\begin{enumerate}
+\item \textbf{Production} (competitive markets, one good, and full technology access $\rightarrow$ Rep. firm)
+\begin{align}
+Y_t &= A_tK^{\rho}\\
+\tau_Y\dot{Y} &= -Y + AK^{\rho}
+\end{align}
+with stochastic technology $A_t$ and population $N_t=N_0e^{nt}$. 
+
+\item \textbf{Households} - representative household investing a  fraction $\kappa$ of income $\Omega_t = Y_t + \max(K_{s,t-\Delta t}-K_{d,t-\Delta t},0)$ (excess capital returned to households), thus investment is $I_t = \kappa \Omega_t$.
+
+\item \textbf{Capital Supply} ($\delta$ = depreciation)
+\begin{align}
+K_{s,t+1} &= (1-\delta-n)K_t + I_t\\
+\dot{K}_s &= \kappa \Omega - (\delta+n)K
+\end{align}
+
+\item \textbf{Capital Demand} via the generalised Ising model (lowercase are log variables)
+\begin{subequations}\label{eq_dyn_system_0}
+\begin{align}
+\dot{k}_d&=c_1 \dot{s} + c_2 s + c_3 \label{eq_dyn_kd}\\
+\tau_s \dot{s}&=-s + \tanh( \beta_1 s + \beta_2 h) \label{eq_sentiment}\\
+\tau_h \dot{h}&=-h + \tanh(\gamma \dot{y} + \xi_t)\label{eq_info}
+\end{align}
+\end{subequations} where $s$ is sentiment, $h$ is information, and $\xi_t$ is exogenous news. 
+
+\item \textbf{Capital Markets} clearing via $K_t=\min\{K_s,K_d\}$
+\end{enumerate}
+
+\section{Dynamic Capital Supply}
+It is natural to expect that households vary their investment depending on the interactions they have. We can allow households to adjust their consumption needs as a fraction of income, $1-\kappa$, on the basis of prior incomes.
+
+Each household $i\in\{1,\dots,M\}$ makes their savings rate decision as
+\begin{equation}
+\kappa_t^{i} \rightarrow F\left(\sum^M_{j=1,j\neq i}J_{ij}\Omega_j\right)
+\end{equation}
+where $F(\cdot)$ is monotonic and increasing. Setting $J_ij=\frac{J}{M}$ and taking the $M\rightarrow\infty$ limit, we get a mean-field approximation. 
+
+We can model this directly with a shifted logistic function as 
+\begin{equation}
+G(\Omega) = \kappa_{min} + \frac{\kappa_{max}-\kappa_{min}}{1 + e^{2\theta(\Omega^{\star}-\Omega)}}
+\end{equation}
+where $\Omega$ is chosen as an input on the basis that it is the easiest for households to observe directly\footnote{In the Solow system, consumption, investment and income are directly proportional, so the choice is primarily economic interpretation}. 
+
+\subsection{Candidates for $\kappa_{max}$ \& $\kappa_{min}$}
+\begin{description}
+\item[$\kappa_{max}$] In the case $K_d>K_s$, we are in the standard Solow case where $\dot{K}=\kappa Y - (\delta+n)K$ (supply-driven capital growth), which reaches a steady state at
+\begin{align}
+K^{\star} & = \frac{\kappa Y}{\delta + n} = \left(\frac{\kappa A_t}{\delta + n}\right)^{\frac{1}{1-\rho}}\\
+Y^\star &= A_t(K^\star)^\rho
+\end{align}
+which allows us to derive the consumption maximising level of $\kappa$ as 
+\begin{align}
+C^\star &= (1-\kappa)Y^\star = Y^\star - (\delta + n)K^\star\\
+\frac{\partial C^\star}{\partial \kappa} &= \left( Y^{\star\prime} - (\delta + n) \right)
+\frac{\partial K^\star}{\partial \kappa}\\
+0 &= Y^{\star\prime}  - (\delta + n) = \rho A (K^\star)^{\rho-1}- (\delta + n)\\
+\kappa^\star &= \rho
+\end{align}
+This is a natural target for $\kappa$ in the case where the economy is perceived to be doing well. This result is specific to the Cobb-Douglas function, but the approach could be used more generally.
+\item[$\kappa_{min}$] Should be a small non-zero value corresponding almost to non-saving. In this case, it is easy for any news to push $K_d>K_s$, where in the balanced growth environment the level of output and capital will increase to \textit{catch up} with the steady state level.
+\end{description}
+
+\section{The Instantaneous Uncoupled Version}
+Assume that $\tau_q=0$ for all $q\in\{h,s,y}$, such that we have n 
+
+
+\end{document}

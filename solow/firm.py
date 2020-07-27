@@ -78,7 +78,9 @@ class Firm(object):
             per capita output to production
         """
         rho = self.param_kwargs['rho']
-        return tech * (k ** rho) * (n ** (1 - rho))
+        y = tech * (k ** rho) * (n ** (1 - rho))
+        r = rho * tech * (k ** (rho - 1))
+        return y, r
 
     def _leontief(self, k: float = 1, n: float = 1, tech: float = 1, **kwargs):
         """ Leontief production function Y=A max(K,N). In per capita case, n=1
@@ -99,14 +101,14 @@ class Firm(object):
         """
         return tech * np.maximum(k, n)
 
-    def production_velocity(self, curr_prod: float, new_prod: float):
+    def production_velocity(self, curr: float, new: float, ln: bool = False):
         """ Velocity of  production
 
         Parameters
         ----------
-        curr_prod   :   float
+        curr   :   float
             current level of production
-        new_prod    :   float
+        new    :   float
             new level of production
 
         Returns
@@ -114,5 +116,9 @@ class Firm(object):
         velocity    :   float
             velocity of production adjusted for the characteristic timescale
         """
+        return (new - curr) / self.param_kwargs['tau_y']
 
-        return (new_prod - curr_prod) / self.param_kwargs['tau_y']
+    def ln_vel(self, tech: float, k: float, y_prev: float):
+        rho = self.param_kwargs['rho']
+        tau = self.param_kwargs['tau_y']
+        return (tech * np.exp(rho * np.log(k) - np.log(y_prev)) - 1) / tau

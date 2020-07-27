@@ -3,7 +3,8 @@ import numpy as np
 
 class CapitalMarket(object):
     def __init__(self, static: bool = True, depreciation: float = 0.2,
-                 pop_growth: float = 0.005, dynamic_kwargs: dict = {}):
+                 pop_growth: float = 0.005, dynamic_kwargs: dict = {},
+                 clearing_form: str = 'min', v_excess: bool = True):
         """ Household class for the dynamic Solow model. At this point the
         household receives income and saves a proportion of this.
 
@@ -20,6 +21,10 @@ class CapitalMarket(object):
             parameters to pass to the dynamic capital demand system. Include:
             { tau_s: float, beta1: float, beta2: float, omega_h: float,
                 gamma: float }
+        clearing_form   :   str
+            type of market clearing
+        v_excess    :   bool
+            Whether to calculate the velocity of the excess
 
         Attributes
         ----------
@@ -44,10 +49,12 @@ class CapitalMarket(object):
         self.depreciation = depreciation
         self.pop_growth = pop_growth
         self.dyn_demand = not static
+        self.clearing_form = clearing_form
+        self.v_excess = v_excess
         self.d_kwargs = dynamic_kwargs
 
-    def demand_velocity(self, s: float, h: float, news: float,
-                        d_production: float):
+    def v_demand(self, s: float, h: float, news: float,
+                 d_production: float, excess: float = 0):
         """ Velocity of capital demand. If the demand is static (basic Solow)
         then we update the demand by the same interval as the supply to preserve
         the K_s = K_d relationship. If the demand is dynamic, we apply the dynamic
@@ -80,7 +87,9 @@ class CapitalMarket(object):
             force_s = self.d_kwargs['beta1'] * s + self.d_kwargs['beta2'] * h
             v_s = (-s + np.tanh(force_s)) / self.d_kwargs['tau_s']
             # Information process
-            force_h = self.d_kwargs['gamma'] * d_production + news
+            force_h = sum([(self.d_kwargs['gamma'] * d_production),
+                           self.d_kwargs['c4'] * excess,
+                           news])
             v_h = (-h + np.tanh(force_h)) / self.d_kwargs['tau_h']
             # Demand velocity based on new sentiment velocity
             v_kd = sum([self.d_kwargs['c1'] * v_s,
@@ -88,7 +97,7 @@ class CapitalMarket(object):
                         self.d_kwargs['c3']])
             return v_kd, v_s, v_h
 
-    def supply_velocity(self, capital: float, investment: float):
+    def v_supply(self, capital: float, investment: float):
         """ Differential function for the change in capital supply
 
         Parameters
@@ -103,3 +112,55 @@ class CapitalMarket(object):
         v_ks    :   change in the supply of capital
         """
         return investment - (self.depreciation + self.pop_growth) * capital
+
+    def clearing(self, ks: float, kd: float, excess: float):
+        """ Function for the market clearing of capital
+
+        Parameters
+        ----------
+        ks  :   float
+            Capital supply
+        kd  :
+            Capital demand
+        excess  :   float
+            Previous excess capital demand
+
+        Returns
+        -------
+        k   :   float
+            capital used in production
+        v_excess  :   float
+            velocity of the excess capital
+        """
+
+        if self.v_excess:
+            v_e = -excess + min([ks - kd, 0])
+        else:
+            v_e = 0
+
+        if self.clearing_form == 'min':
+            return min([ks, kd]), v_e
+        elif self.clearing_form == 'kd':
+            return kd, v_e
+        elif self.clearing_form == 'ks':
+            return ks, v_e
+        else:
+            return None, v_e
+
+    def eff_earnings(self, k: float, ks: float, k_ret: float):
+        """ Effective earnings on capital
+
+        Parameters
+        ----------
+        k   :   float
+            Level of capital used
+        ks  :   float
+            Level of capital supply i.e. money in bank
+        k_ret   :   float
+            Return to capital from investment in production
+
+        Returns
+        -------
+
+        """
+        return (k / ks) * (k_ret - self.depreciation) - self.pop_growth

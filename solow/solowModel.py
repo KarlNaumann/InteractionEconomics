@@ -11,7 +11,8 @@ from ornstein_uhlenbeck import OrnsteinUhlenbeck
 
 class SolowModel(object):
     def __init__(self, hh_kwargs: dict, firm_kwargs: dict, capital_kwargs: dict,
-                 tech_rate: float, ou_kwargs: dict):
+                 tech_rate: float, ou_kwargs: dict, clearing_form: str = 'min',
+                 v_excess: bool = True):
         """ Class implementing the Solow model
 
         Parameters
@@ -39,6 +40,10 @@ class SolowModel(object):
             {   decay: float, drift: float, diffusion: float, t0: float }
         tech_rate   :   float
             technology growth rate
+        clearing_form   :   str
+            type of market clearing
+        v_excess    :   bool
+            Whether to calculate the velocity of the excess
 
 
         Returns
@@ -49,7 +54,8 @@ class SolowModel(object):
         self.tech_rate = tech_rate
         self.firm = Firm(**firm_kwargs)
         self.household = Household(**hh_kwargs)
-        self.cm = CapitalMarket(**capital_kwargs)
+        self.cm = CapitalMarket(clearing_form=clearing_form, v_excess=v_excess,
+                                **capital_kwargs)
         self.ou_process = OrnsteinUhlenbeck(**ou_kwargs)
 
         # Storage
@@ -75,7 +81,7 @@ class SolowModel(object):
         entities = {
             'household': self.household,
             'firm': self.firm,
-            'capital_market': self.cm,
+            'cap_mkt': self.cm,
         }
 
         # Model
@@ -91,6 +97,9 @@ class SolowModel(object):
 
         self.path = path
         self.vars = self._path_df(path.y, t0, t_end)
+
+        # Errors
+        print("Successful: {}".format(path.message))
 
         return path
 
@@ -109,34 +118,25 @@ class SolowModel(object):
         v_cons = consumption - cons
 
         # Capital level given the supply and demand
-        if entities['capital_market'].dyn_demand:
-            k = min([ks, np.exp(kd)])
-            v_excess = -excess + max([ks - np.exp(kd), 0])
-        else:
-            k = ks
-            v_excess = 0
+        k, v_e = entities['cap_mkt'].clearing(ks, np.exp(kd), excess)
 
         # Determine new production level and velocity of production
         factors = {'k': k, 'n': 1, 'tech': tech}
         y_new, k_ret = entities['firm'].production(factors)
         v_y = entities['firm'].production_velocity(curr=y, new=y_new)
-
-        # Effective interest rate earned
-        dep = entities['capital_market'].depreciation
-        pop = entities['capital_market'].pop_growth
-        v_r = -r + (k / ks) * (k_ret - dep) - pop
+        v_r = -r + k_ret  # entities['cap_mkt'].eff_earnings(k, ks, k_ret)
 
         # Capital supply ( - depreciation + new investment)
-        v_ks = entities['capital_market'].supply_velocity(ks, investment)
+        v_ks = entities['cap_mkt'].v_supply(ks, investment)
 
         # Determine the velocity of capital demand
-        v_ln_y = v_y / y  # entities['firm'].production_velocity(curr=y, new=y_new, ln=True)
-        if entities['capital_market'].dyn_demand:
-            v_kd, v_s, v_h = entities['capital_market'].demand_velocity(s, h, news, v_ln_y, excess)
+        v_ln_y = entities['firm'].ln_vel(tech, k, y)  # v_y / y  #
+        if entities['cap_mkt'].dyn_demand:
+            v_kd, v_s, v_h = entities['cap_mkt'].v_demand(s, h, news, v_ln_y, r)
         else:
             v_kd, v_s, v_h = [0, 0, 0]
 
-        return [v_y, v_ks, v_kd, v_s, v_h, v_tech, v_cons, v_excess, v_r]
+        return [v_y, v_ks, v_kd, v_s, v_h, v_tech, v_cons, v_e, v_r]
 
     def _initial_values(self, given: dict):
         """ Function to manipulate an initial value dictionary for compatibility
@@ -172,7 +172,7 @@ class SolowModel(object):
         k = min([given['ks'], np.exp(given['kd'])])
         _, k_ret = self.firm.production({'k': k, 'tech': given['tech']})
         r = (k / given['ks']) * (k_ret - self.cm.depreciation) - self.cm.pop_growth
-        initial_values.append(r)
+        initial_values.append(k_ret)
         return initial_values
 
     @staticmethod
@@ -194,34 +194,117 @@ class SolowModel(object):
         # index = np.arange(int(t0), int(t_end) - 1)
         return pd.DataFrame(array.T, columns=cols)  # , index=index)
 
-    def visualise(self, save: str = ''):
+    def visualise(self, save: str = '', case: str = 'general'):
         """ Generate a plot to visualise the outputs"""
-        df = self.vars
-        fig, ax_lst = plt.subplots(4, 2)
-        fig.set_size_inches(15, 10)
+        df = self.vars.copy(deep=True)
+        df.loc[:, 'kd'] = np.exp(df.loc[:, 'kd'])
 
-        # Production and growth
-        ax_lst[0, 0].plot(df.loc[:, 'y'])
-        ax_lst[0, 0].set_title('Production')
-        ax_lst[0, 1].plot(df.loc[:, 'y'].pct_change())
-        ax_lst[0, 1].set_title('Production Growth Rates')
+        if case == 'general':
+            fig, ax_lst = plt.subplots(4, 2)
+            fig.set_size_inches(15, 10)
+            k = df.loc[:, ['kd', 'ks']].min(axis=1)
+            g_ix = df.loc[:, 'y'].pct_change() < 0
+            s, e = self._recessionSE(g_ix)
 
-        # Capital Markets
-        ax_lst[1, 0].plot(np.exp(df.loc[:, 'kd']), label='Demand')
-        ax_lst[1, 0].plot(df.loc[:, 'ks'], label='Supply')
-        ax_lst[1, 0].legend()
-        ax_lst[1, 0].set_title('Capital Supply and Demand')
-        ax_lst[1, 1].plot(df.loc[:, 'r'])
-        ax_lst[1, 1].set_title('Effective Interest Rate')
+            # Production and growth
+            ax_lst[0, 0].plot(df.loc[:, 'y'])
+            ax_lst[0, 0].set_title('Production')
+            for j in zip(s, e):
+                ax_lst[0, 0].axvspan(xmin=j[0], xmax=j[1], color='gainsboro')
+            ax_lst[0, 1].plot(df.loc[:, 'y'].pct_change())
+            ax_lst[0, 1].set_title('Production Growth Rates')
+            for j in zip(s, e):
+                ax_lst[0, 1].axvspan(xmin=j[0], xmax=j[1], color='gainsboro')
 
-        # Capital Demand Dynamics
-        ax_lst[2, 0].plot(df.loc[:, 's'])
-        ax_lst[2, 0].set_title('Sentiment')
-        ax_lst[2, 1].plot(df.loc[:, 'h'])
-        ax_lst[2, 1].set_title('Information')
+            # Capital Markets
+            ax_lst[1, 0].plot(df.kd, label='Demand')
+            ax_lst[1, 0].plot(df.ks, label='Supply')
+            ax_lst[1, 0].legend()
+            ax_lst[1, 0].set_title('Capital Supply and Demand')
+            for j in zip(s, e):
+                ax_lst[1, 0].axvspan(xmin=j[0], xmax=j[1], color='gainsboro')
+
+            ax_lst[1, 1].plot(k)
+            ax_lst[1, 1].set_title('Capital Applied to Production')
+
+            # Variables of interest
+            ax_lst[2, 0].plot(df.loc[:, 'r'])
+            ax_lst[2, 0].set_title('Capital Earnings Rate from Production')
+            ax_lst[2, 0].axhline(self.cm.depreciation)
+            for j in zip(s, e):
+                ax_lst[2, 0].axvspan(xmin=j[0], xmax=j[1], color='gainsboro')
+
+            ax_lst[2, 1].plot(self.eff_interest(df.ks, k, df.r))
+            ax_lst[2, 1].set_title('Effective Earnings')
+            ax_lst[2, 1].axhline(0)
+            for j in zip(s, e):
+                ax_lst[2, 1].axvspan(xmin=j[0], xmax=j[1], color='gainsboro')
+
+            # Capital Demand Dynamics
+            ax_lst[3, 0].plot(df.loc[:, 's'])
+            ax_lst[3, 0].set_title('Sentiment')
+            for j in zip(s, e):
+                ax_lst[3, 0].axvspan(xmin=j[0], xmax=j[1], color='gainsboro')
+            ax_lst[3, 1].plot(df.loc[:, 'h'])
+            ax_lst[3, 1].set_title('Information')
+
+        elif case == 'ks':
+            fig, ax_lst = plt.subplots(3, 1)
+            fig.set_size_inches(15, 10)
+
+            # Production and growth
+            ax_lst[0].plot(df.loc[:, 'y'])
+            ax_lst[0].set_title('Production')
+            ax_lst[1].plot(df.loc[:, 'y'].pct_change())
+            ax_lst[1].set_title('Production Growth Rates')
+
+            # Capital Markets
+            ax_lst[2].plot(df.ks, label='Supply')
+            ax_lst[2].set_title('Capital Supply')
+
+        elif case == 'kd':
+            fig, ax_lst = plt.subplots(5, 1)
+            fig.set_size_inches(15, 10)
+
+            # Production and growth
+            ax_lst[0].plot(df.loc[:, 'y'])
+            ax_lst[0].set_title('Production')
+            ax_lst[1].plot(df.loc[:, 'y'].pct_change())
+            ax_lst[1].set_title('Production Growth Rates')
+
+            # Capital Markets
+            ax_lst[2].plot(df.kd, label='Demand')
+            ax_lst[2].set_title('Capital Demand')
+
+            # Capital Demand Dynamics
+            ax_lst[3].plot(df.loc[:, 's'])
+            ax_lst[3].set_title('Sentiment')
+            ax_lst[4].plot(df.loc[:, 'h'])
+            ax_lst[4].set_title('Information')
 
         plt.tight_layout()
 
         if save is not '':
             plt.savefig(save, bbox_inches='tight')
         plt.show()
+
+    def eff_interest(self, ks, k, r):
+
+        return (k.divide(ks) * r) - self.cm.depreciation
+
+    def _recessionSE(self, ds):
+        """returns list of (startdate,enddate) tuples for recessions"""
+        start, end = [], []
+        # Check to see if we start in recession
+        if ds.iloc[0] == 1: start.extend([ds.index[0]])
+        # add recession start and end dates
+        for i in range(1, ds.shape[0]):
+            a = ds.iloc[i - 1]
+            b = ds.iloc[i]
+            if a == 0 and b == 1:
+                start.extend([ds.index[i]])
+            elif a == 1 and b == 0:
+                end.extend([ds.index[i - 1]])
+        # if there is a recession at the end, add the last date
+        if len(start) > len(end): end.extend([ds.index[-1]])
+        return start, end
