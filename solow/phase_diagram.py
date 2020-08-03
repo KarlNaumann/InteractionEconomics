@@ -271,7 +271,7 @@ class PhaseDiagram(object):
 
         """
         paths = []
-        args = self.args + [self.ou]
+        args = args if args is not None else self.args + [self.ou]
 
         # Gather solution candidates from different starting values
         for start in init_val_list:
@@ -303,14 +303,18 @@ class PhaseDiagram(object):
                             'decay': self.theta, "drift": 0, "diffusion": sigma,
                             "t0": 1
                         })
-                args = [self.times, self.demand, self.s_args, h_args, ou]
+                args = [self.times, self.demand, self.s_args, h_args, True, ou]
 
                 # Simulate
-                path = self.stochastic_simulation([start], t0=1, t_end=2e5,
+                path = self.stochastic_simulation([start], t0=1, t_end=5e4,
                                                   args=args)
-                recessions = self.recessionSE(np.exp(path[0].y), 63)
 
-                result.loc[gamma, sigma] = np.mean(recessions.start.diff(1))
+                return path
+                plt.plot(np.exp(path[0].y))
+                plt.show()
+                # Find recessions based on the quarterly
+                recessions = self.recessionSE(np.exp(path[0].y), 63)
+                # result.loc[gamma, sigma] = np.mean(recessions.start.diff(1))
 
         if plot:
             f = {'fontsize': 12, 'fontweight': 'medium'}
@@ -327,7 +331,7 @@ class PhaseDiagram(object):
         return result
 
     @staticmethod
-    def recessionSE(gdp, t):
+    def recessionSE(gdp, timescale='Q-JAN'):
         """ Calculate the start and end of recessions on the basis of gdp growth.
         Two consecutive periods of length t that have negative growth start a
         recession. Two with positive growth end it.
@@ -339,21 +343,42 @@ class PhaseDiagram(object):
 
         Returns
         -------
+        df  :   pd.DataFrame
+            DataFrame containing full cycles in sample. I.e. start at first
+            moment of expansion, end at last moment of expansions. Gives the
+            expa
 
         """
-        growth = gdp.pct_change(t)
+        growth = gdp.copy(deep=True)
+        day_ix = pd.bdate_range('2000', freq='D', periods=gdp.shape[0])
+        growth.index = day_ix
+        growth = growth.resample(timescale, convention='end').agg(
+                lambda x: (x[-1] - x[0]) / x[0])
+
         ix = growth < 0
 
-        ix_next = ix.shift(1)
-        ix_next2 = ix.shift(2)
-        ix_prev = ix.shift(-1)
+        # expansion start => negative growth to two consecutive expansions
+        expansions = np.flatnonzero(
+                (ix.shift(-1) == False) & (ix == True) & (ix.shift(1) == True))
 
-        df = pd.DataFrame(dict(
-                # Start => go from negative growth to two consecutive expansions
-                start=np.flatnonzero((ix.shift(-1) == False) & (ix == True) & (
-                        ix.shift(1) == True)),
-                # End => go from positive growth to two consecutive contractions
-                end=np.flatnonzero((ix == True) & (ix.shift(1) == False) & (
-                        ix.shift(2) == False))))
+        # recession start => positive growth to two consecutive contractions
+        recessions = np.flatnonzero(
+                (ix == True) & (ix.shift(1) == False) & (ix.shift(2) == False))
 
-        return df
+        # Convert to indexes in original
+        expansions = [day_ix.get_loc(growth.index[i]) for i in expansions]
+        recessions = [day_ix.get_loc(growth.index[i]) for i in recessions]
+
+        # Generate start end tuples, first is given
+        se = [
+            (expansions[0], min([i for i in recessions if i > expansions[0]]))]
+
+        i = 1
+        while i < len(expansions):
+            # Iterate through expansions until recession is hit, then update
+            next_rec = recessions[recessions.index(se[-1][1]) + 1]
+            if se[-1][1] < expansions[i] < next_rec:
+                se.append((expansions[i], next_rec))
+            i += 1
+
+        return pd.DataFrame(se, columns=['expansion', 'recession'])
