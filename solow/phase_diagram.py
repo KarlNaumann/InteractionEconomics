@@ -248,7 +248,7 @@ class PhaseDiagram(object):
         return result
 
     def stochastic_simulation(self, init_val_list: list, t0: float = 1,
-                              t_end: float = 2e5, args=None):
+                              t_end: float = 2e5, args=None) -> list:
         """ Simulate the stochastically forced dynamical system in the
         (s,h,z)-space, i.e. under the condition that Kd<Ks for all periods
 
@@ -290,48 +290,75 @@ class PhaseDiagram(object):
         return paths
 
     def gamma_theta_phases(self, start: list, gammas: list, sigmas: list,
-                           plot: bool = True):
+                           plot: bool = True, sim_len: int = 2e5):
 
-        result = pd.DataFrame(index=gammas, columns=sigmas)
+        prior_h_arg = self.h_args
+        prior_ou = self.ou
 
-        for gamma in gammas:
-            for sigma in sigmas:
+        result = {
+            'mean': pd.DataFrame(index=gammas, columns=sigmas),
+            'std': pd.DataFrame(index=gammas, columns=sigmas),
+            'down': pd.DataFrame(index=gammas, columns=sigmas),
+            'mdd': pd.DataFrame(index=gammas, columns=sigmas)
+        }
+
+        if plot:
+            fig, ax_lst = plt.subplots(len(gammas), len(sigmas))
+            fig.set_size_inches(15, 10)
+
+        for g, gamma in enumerate(gammas):
+            for sig, sigma in enumerate(sigmas):
                 # Set up the params
-                h_args = {'gamma': gamma}
-                ou = OrnsteinUhlenbeck(
+                self.h_args = {'gamma': gamma}
+                self.ou = OrnsteinUhlenbeck(
                         **{
                             'decay': self.theta, "drift": 0, "diffusion": sigma,
                             "t0": 1
                         })
-                args = [self.times, self.demand, self.s_args, h_args, True, ou]
+                args = [self.times, self.demand, self.s_args, self.h_args, True,
+                        self.ou]
 
                 # Simulate
-                path = self.stochastic_simulation([start], t0=1, t_end=5e4,
+                path = self.stochastic_simulation([start], t0=1, t_end=sim_len,
                                                   args=args)
 
-                return path
-                plt.plot(np.exp(path[0].y))
-                plt.show()
-                # Find recessions based on the quarterly
-                recessions = self.recessionSE(np.exp(path[0].y), 63)
-                # result.loc[gamma, sigma] = np.mean(recessions.start.diff(1))
+                # Find recessions based on the quarterly growth
+                gdp = np.exp(path[0].y)
+                recessions = self.recession_timing(gdp)
+                analysis = self.recession_analysis(recessions, gdp)
+                info = self.point_classification(self.find_critical_points(),
+                                                 plot=False)
+                stable_points = [info[p]['type'] == 'stable' for p in
+                                 info.keys()]
+                stable = sum(stable_points) == 2
 
+                if plot:
+                    ax_lst[g, sig].plot(gdp)
+                    for i in range(1, recessions.shape[0]):
+                        ax_lst[g, sig].axvspan(recessions.iloc[i - 1, 1],
+                                               recessions.iloc[i, 0],
+                                               color='gray')
+                    info = """Mean: {:.2f}\nStd: {:.2f}\nMDD: {:.2f}\n Down: {:.2f} \n Stable: {}""".format(
+                            analysis['mean'], analysis['std'], analysis['mdd'],
+                            analysis['down'], stable)
+                    ax_lst[g, sig].text(0.15, 0.8, info, ha='center',
+                                        va='center', fontsize=9,
+                                        transform=ax_lst[g, sig].transAxes)
+                    ax_lst[g, sig].set_title(
+                        'Gamma: {:.2f}, Sigma: {:.2f}'.format(gamma, sigma))
+                print(recessions)
+
+                for id, val in analysis.items():
+                    if id in result.keys():
+                        result[id].iloc[g, sig] = val
         if plot:
-            f = {'fontsize': 12, 'fontweight': 'medium'}
-            cmap = plt.get_cmap('OrRd')
-
-            fig = plt.figure(constrained_layout=True)
-            fig.set_size_inches((4, 10))
-
-            ax = fig.add_subplot()
-            sns.heatmap(result, annot=True, ax=ax)
-
+            plt.tight_layout()
             plt.show()
 
-        return result
+        return result, recessions
 
     @staticmethod
-    def recessionSE(gdp, timescale='Q-JAN'):
+    def recession_timing(gdp, timescale='Q-JAN'):
         """ Calculate the start and end of recessions on the basis of gdp growth.
         Two consecutive periods of length t that have negative growth start a
         recession. Two with positive growth end it.
@@ -369,16 +396,81 @@ class PhaseDiagram(object):
         expansions = [day_ix.get_loc(growth.index[i]) for i in expansions]
         recessions = [day_ix.get_loc(growth.index[i]) for i in recessions]
 
-        # Generate start end tuples, first is given
-        se = [
-            (expansions[0], min([i for i in recessions if i > expansions[0]]))]
+        print('Expansion\t', expansions)
+        print('Recession\t', recessions)
 
-        i = 1
+        # Generate start end tuples, first is given (assume we start in exp.)
+        se = [(0, min(recessions))]
+
+        i = 0
         while i < len(expansions):
-            # Iterate through expansions until recession is hit, then update
-            next_rec = recessions[recessions.index(se[-1][1]) + 1]
+            # Determine the index of the next recession
+            rec_ix = min([ix for ix in recessions if ix > expansions[i]]
+                         + [gdp.shape[0]])
+            # Check if the recession is admissible
+            if rec_ix > se[-1][1]:
+                se.append((expansions[i], rec_ix))
+            # Find expansion after this
+            exp = min([i for i in expansions if i > rec_ix] + [gdp.shape[0]])
+            if exp == gdp.shape[0]:
+                break
+            else:
+                i = expansions.index(exp)
+
+            """
+            rec_ix = recessions.index(se[-1][1])
+            while expansions[i] > recessions[rec_ix]:
+                rec_ix += 1
+            rec_ix = + 1
+            if rec_ix >= len(recessions):
+                break
+            next_rec = recessions[rec_ix]
             if se[-1][1] < expansions[i] < next_rec:
                 se.append((expansions[i], next_rec))
             i += 1
+            """
+        # remainders = [j for j in expansions if j>se[-1][1]]
+        # if len(remainders)>0:
+        #    se.append((remainders[0],))
 
         return pd.DataFrame(se, columns=['expansion', 'recession'])
+
+    @staticmethod
+    def recession_analysis(rec, gdp) -> dict:
+        """ Function to wrap some basic analysis of the recessions
+
+        Parameters
+        ----------
+        rec  :   pd.DataFrame
+            recessions with first col being expansion starts, and second
+            recession starts
+        gdp     :   pd.Series
+
+
+        Returns
+        -------
+        analysis    :   dict
+        """
+        mdd, down, up = [], [], []
+
+        # Find the max drawdown and the time to max drawdown
+        for i in range(rec.shape[0] - 1):
+            # expansion to expansion
+            window = gdp.loc[rec.iloc[i, 0]:rec.iloc[i + 1, 0]]
+            # recession to recession
+            window2 = gdp.loc[rec.iloc[i, 1]:rec.iloc[i + 1, 1]]
+            # Maximum drawdown during a cycle
+            mdd.append(100 * (window.max() - window2.min()) / window.max())
+            # Time from start of recession to trough
+            down.append(window2.idxmin() - rec.iloc[i, 1])
+
+        analysis = {
+            'mean': np.mean(rec.expansion.diff(1)),
+            'std': np.std(rec.expansion.diff(1)),
+            'mdd': np.mean(mdd),
+            'down': np.mean(down)
+        }
+
+        print(analysis)
+
+        return analysis
