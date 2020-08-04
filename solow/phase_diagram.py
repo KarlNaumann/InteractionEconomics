@@ -1,6 +1,5 @@
 import numpy as np
 import pandas as pd
-import seaborn as sns
 from matplotlib import pyplot as plt
 from numdifftools import Jacobian
 from scipy.integrate import solve_ivp
@@ -108,7 +107,7 @@ class PhaseDiagram(object):
         else:
             return np.array([v_s, v_h, v_z])
 
-    def find_critical_points(self) -> list:
+    def _find_critical_points(self, args: tuple = None) -> list:
         """ Determine the critical points in the system, where v_s, v_h and v_z
         are equal to 0. Do this by substituting in for s, solving s, and then
         solving the remaining points.
@@ -127,9 +126,11 @@ class PhaseDiagram(object):
         sols = []
         min_options = {'eps': 1e-10}
 
+        args = args if args is not None else self.crit_args
+
         # Use minimiser to determine where the function crosses 0
         for x in np.linspace(-1, 1, 11):
-            candidate = minimize(f, x0=x, bounds=[(-1, 1)], args=self.crit_args,
+            candidate = minimize(f, x0=x, bounds=[(-1, 1)], args=args,
                                  method='L-BFGS-B', options=min_options)
             if candidate.success:
                 sols.append(candidate.x[0])
@@ -156,9 +157,9 @@ class PhaseDiagram(object):
 
         return coordinates
 
-    def point_classification(self, crit_points: list,
-                             plot: bool = True,
-                             vector_field: bool = True) -> dict:
+    def _point_classification(self, crit_points: list,
+                              plot: bool = True,
+                              vector_field: bool = True) -> dict:
 
         result = {}
 
@@ -247,6 +248,68 @@ class PhaseDiagram(object):
 
         return result
 
+    def sh_phase_diagram(self, plot=True, vector_field=True) -> dict:
+        """ Outward facing wrapper function to determine the critical points
+        and construct phase diagram in the (s,h) plane
+
+        Parameters
+        ----------
+        plot    :   bool
+        vector_field    :   bool
+
+        Returns
+        -------
+        info    :   dict
+        """
+
+        critical_points = self._find_critical_points()
+        return self._point_classification(critical_points, plot, vector_field)
+
+    def stability_plot(self, gamma: np.ndarray,
+                       epsilon: np.ndarray, plot: bool = True,
+                       save: str = '') -> pd.DataFrame:
+        """ Function to determine at which points either of the two equilibria
+        become unstable
+
+        Parameters
+        ----------
+        gammas, thetas  :   np.ndarray
+            parameter space to iterate across
+        plot    :   bool
+        Returns
+        -------
+
+        """
+        args = list(self.crit_args)
+
+        df = pd.DataFrame(index=np.sort(gamma), columns=np.sort(epsilon))
+
+        for i, g in enumerate(df.index):
+            for j, e in enumerate(df.columns):
+                args[2] = g
+                args[-1] = e
+                points = self._find_critical_points(args=tuple(args))
+                info = self._point_classification(points, plot=False)
+                count = [1 for i in info if info[i]['type'] == 'stable']
+                df.iloc[i, j] = sum(count) == 2
+        if plot:
+            fig, ax = plt.subplots()
+            fig.set_size_inches(10, 12)
+            plt.imshow(df.astype(float).values, cmap='RdYlGn')
+            ax.set_xlabel('Gamma')
+            ax.set_xticks(np.linspace(0, df.shape[1], len(df.index[::5])))
+            ax.set_xticklabels(['{:.2e}'.format(i) for i in df.index[::5]],
+                               rotation='vertical')
+            ax.set_ylabel('Epsilon')
+            ax.set_yticks(np.linspace(0, df.shape[0], len(df.columns[::5])))
+            ax.set_yticklabels(['{:.2e}'.format(i) for i in df.columns[::5]],
+                               rotation='horizontal')
+            if save != '':
+                plt.savefig(save, bbox_inches='tight')
+            plt.show()
+
+        return df
+
     def stochastic_simulation(self, init_val_list: list, t0: float = 1,
                               t_end: float = 2e5, args=None) -> list:
         """ Simulate the stochastically forced dynamical system in the
@@ -301,6 +364,8 @@ class PhaseDiagram(object):
             'down': pd.DataFrame(index=gammas, columns=sigmas),
             'mdd': pd.DataFrame(index=gammas, columns=sigmas)
         }
+        rec_dict = {}
+        path_dict = {}
 
         if plot:
             fig, ax_lst = plt.subplots(len(gammas), len(sigmas))
@@ -321,13 +386,12 @@ class PhaseDiagram(object):
                 # Simulate
                 path = self.stochastic_simulation([start], t0=1, t_end=sim_len,
                                                   args=args)
-
                 # Find recessions based on the quarterly growth
                 gdp = np.exp(path[0].y)
                 recessions = self.recession_timing(gdp)
                 analysis = self.recession_analysis(recessions, gdp)
-                info = self.point_classification(self.find_critical_points(),
-                                                 plot=False)
+                info = self._point_classification(self._find_critical_points(),
+                                                  plot=False)
                 stable_points = [info[p]['type'] == 'stable' for p in
                                  info.keys()]
                 stable = sum(stable_points) == 2
@@ -345,20 +409,27 @@ class PhaseDiagram(object):
                                         va='center', fontsize=9,
                                         transform=ax_lst[g, sig].transAxes)
                     ax_lst[g, sig].set_title(
-                        'Gamma: {:.2f}, Sigma: {:.2f}'.format(gamma, sigma))
-                print(recessions)
+                            'Gamma: {:.2f}, Sigma: {:.2f}'.format(gamma, sigma))
 
                 for id, val in analysis.items():
                     if id in result.keys():
                         result[id].iloc[g, sig] = val
+
+                rec_dict[(gamma, sigma)] = recessions
+                path_dict[(gamma, sigma)] = path
+
         if plot:
             plt.tight_layout()
             plt.show()
 
-        return result, recessions
+        # Return parameters to original level
+        self.h_args = prior_h_arg
+        self.ou = prior_ou
+
+        return result, rec_dict, path_dict
 
     @staticmethod
-    def recession_timing(gdp, timescale='Q-JAN'):
+    def recession_timing(gdp, timescale=63):
         """ Calculate the start and end of recessions on the basis of gdp growth.
         Two consecutive periods of length t that have negative growth start a
         recession. Two with positive growth end it.
@@ -376,12 +447,8 @@ class PhaseDiagram(object):
             expa
 
         """
-        growth = gdp.copy(deep=True)
-        day_ix = pd.bdate_range('2000', freq='D', periods=gdp.shape[0])
-        growth.index = day_ix
-        growth = growth.resample(timescale, convention='end').agg(
-                lambda x: (x[-1] - x[0]) / x[0])
 
+        growth = gdp.copy(deep=True).iloc[::timescale].pct_change()
         ix = growth < 0
 
         # expansion start => negative growth to two consecutive expansions
@@ -393,11 +460,8 @@ class PhaseDiagram(object):
                 (ix == True) & (ix.shift(1) == False) & (ix.shift(2) == False))
 
         # Convert to indexes in original
-        expansions = [day_ix.get_loc(growth.index[i]) for i in expansions]
-        recessions = [day_ix.get_loc(growth.index[i]) for i in recessions]
-
-        print('Expansion\t', expansions)
-        print('Recession\t', recessions)
+        expansions = [growth.index[i] for i in expansions]
+        recessions = [growth.index[i] for i in recessions]
 
         # Generate start end tuples, first is given (assume we start in exp.)
         se = [(0, min(recessions))]
@@ -416,22 +480,6 @@ class PhaseDiagram(object):
                 break
             else:
                 i = expansions.index(exp)
-
-            """
-            rec_ix = recessions.index(se[-1][1])
-            while expansions[i] > recessions[rec_ix]:
-                rec_ix += 1
-            rec_ix = + 1
-            if rec_ix >= len(recessions):
-                break
-            next_rec = recessions[rec_ix]
-            if se[-1][1] < expansions[i] < next_rec:
-                se.append((expansions[i], next_rec))
-            i += 1
-            """
-        # remainders = [j for j in expansions if j>se[-1][1]]
-        # if len(remainders)>0:
-        #    se.append((remainders[0],))
 
         return pd.DataFrame(se, columns=['expansion', 'recession'])
 
