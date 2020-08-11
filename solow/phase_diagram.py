@@ -24,7 +24,7 @@ class PhaseDiagram(object):
                  tau_y: float = 2000, epsilon: float = 5e-5, c1: float = 1,
                  c2: float = 15e-5, s0: float = 0, tech0: float = 1,
                  beta1: float = 1.1, beta2: float = 1.0, gamma: float = 2000,
-                 theta: float = 0.2, sigma: float = 2.5):
+                 phi: float = 1.0, theta: float = 0.2, sigma: float = 2.5):
         """ Class instance to generate various phase diagram representations of
         the dynamic capital demand system
 
@@ -48,24 +48,23 @@ class PhaseDiagram(object):
         theta, sigma    :   float (defaults: 0.2, 2.5)
             parametrisation of the Ornstein-Uhlenbeck white noise process
         """
+        # Arguments on a per function basis
+        self.z_args = {
+            "tau": tau_y, "eps": epsilon, "c1": c1, "c2": c2, "s0": s0,
+            "tech0": tech0
+        }
+        self.s_args = {"tau": tau_s, "b1": beta1, "b2": beta2}
+        self.h_args = {"tau": tau_h, "gamma": gamma, "phi": phi}
+        self.ou_args = {"decay": theta, "diffusion": sigma, "drift": 0, "t0": 1}
 
-        # Save the arguments to be used
-        self.times = {"h": tau_h, "s": tau_s, "y": tau_y, "tech": 1 / epsilon, }
+        # Initialise some additional useful params
         self.epsilon = epsilon
-        self.demand = {"c1": c1, "c2": c2, "s0": s0, 'tech0': tech0}
-        self.s_args = {"beta1": beta1, "beta2": beta2, }
-        self.h_args = {'gamma': gamma}
-        self.theta = theta
-        self.ou = OrnsteinUhlenbeck(
-                **{'decay': theta, "drift": 0, "diffusion": sigma, "t0": 1})
-        self.args = [self.times, self.demand, self.s_args, self.h_args]
+        self.ou = OrnsteinUhlenbeck(**self.ou_args)
 
-        # Arguments for the critical value function
-        self.crit_args = (beta1, beta2, gamma, c2, s0, epsilon)
+        self._crit_point_info = None
 
     @staticmethod
-    def velocity(t, x, times, demand, s_arg, h_arg, use_k=True,
-                 ou=None) -> np.array:
+    def velocity(t, x, z_args, s_args, h_args, use_k=True, ou=None) -> np.array:
         """ Calculate the velocity of the demand system in (s,h,z)-space.
         Function is static so that it can be used in the solve_ivp optimiser
 
@@ -89,25 +88,186 @@ class PhaseDiagram(object):
 
         s, h, z = x[0], x[1], x[2]
 
-        v_s = -s + np.tanh(s_arg['beta1'] * s + s_arg['beta2'] * h)
-        v_s = v_s / times['s']
+        v_s = -s + np.tanh(s_args['b1'] * s + s_args['b2'] * h)
+        v_s = v_s / s_args['tau']
 
-        delta_prod = (demand['tech0'] * np.exp(z) - 1) / times['y']
-        force = h_arg['gamma'] * delta_prod
-        if ou is not None: force += ou.euler_maruyama(t)
+        delta_prod = (z_args['tech0'] * np.exp(z) - 1) / z_args['tau']
+        if ou is not None:
+            force = h_args['gamma'] * delta_prod + ou.euler_maruyama(t)
+        else:
+            force = h_args['gamma'] * delta_prod
 
-        v_h = (-h + np.tanh(force)) / times['h']
-
-        v_z = demand['c1'] * v_s + demand['c2'] * s - delta_prod \
-              + (1 / times['tech'])
+        v_h = (-h + np.tanh(force)) / h_args['tau']
+        v_z = (z_args['c1'] * v_s) + (
+                    z_args['c2'] * (s - z_args['s0'])) - delta_prod + z_args[
+                  "eps"]
 
         if use_k:
-            v_k = demand['c1'] * v_s + demand['c2'] * s
+            v_k = z_args['c1'] * v_s + z_args['c2'] * s
             return np.array([v_s, v_h, v_z, v_k])
         else:
             return np.array([v_s, v_h, v_z])
 
-    def _find_critical_points(self, args: tuple = None) -> list:
+    def overview(self, start: np.ndarray, plot: bool = True,
+                 t_end: float = 1e5, save: str = '') -> pd.DataFrame:
+        """ Generate an overview of the system under the given parameters by
+        (1) phase diagram, (2) Sentiment plot and analysis, (3) 3D plot
+
+        Parameters
+        ----------
+        start   :   np.ndarray
+            Starting point in the (s,h,z) space
+        plot    :   boolean
+
+        Returns
+        -------
+        path    :   pd.DataFrame
+            DataFrame containing the
+        """
+
+        # First determine critical points and prep to plot phase Diagram
+        critical_points = self._point_classification(self._critical_points())
+        print("Critical points at:")
+        for point, v in critical_points.items():
+            print("({:.2f},{:.2f},{:.2f})\t-\t{}".format(*point, v['kind']))
+
+        # Generate a simulation for the system
+        path = self.simulate([start], t_end=t_end)
+
+        # Generate the plots
+        fig = plt.figure()
+        fig.set_size_inches(8, 15)
+        ax_lst = []
+
+        # Phase Diagram
+        ax_lst.append(fig.add_subplot(311))
+        self.phase_diagram(show=False, ax=ax_lst[0], start=start)
+        ax_lst[0].set_title("Phase Diagram in the (s,h) space")
+
+        # Sentiment over time
+        ax_lst.append(fig.add_subplot(312))
+        self._sentiment_plot(path, ax=ax_lst[1])
+
+        # Add production to the plot
+        ax2 = ax_lst[1].twinx()
+        ax2.plot(path.y, color='green')
+        ax2.set_ylabel("Log Production (y)")
+
+        ax_lst.append(fig.add_subplot(313))
+        ax_lst[2].plot(path.s, path.z, color='blue', linewidth=0.5)
+        ax_lst[2].set_xlabel("Sentiment (s)")
+        ax_lst[2].set_ylabel("Z")
+        ax_lst[2].set_xlim(-1, 1)
+        for point, v in self._crit_point_info.items():
+            if 'unstable' not in v['kind']:
+                ax_lst[2].scatter(point[0], point[2], linewidths=1, color='red')
+        # 3D plot of (s,h,z) space
+        #ax_lst.append(fig.add_subplot(313, projection='3d'))
+        #self._3d_trajectory(path, ax=ax_lst[2], rotate=False)
+
+        plt.tight_layout()
+        if save is not '':
+            plt.savefig(save, bbox_inches='tight')
+        plt.show(block=False)
+
+    def _3d_trajectory(self, path: pd.DataFrame, ax=None, rotate: bool = False):
+        """ 3D plot in the s,h,z space
+
+        Parameters
+        ----------
+        ax  :   matplotlib.axes._subplots.Axes3DSubplot
+        rotate  :   whether to animate a rotation
+
+        Returns
+        -------
+        ax  :   matplotlib.axes._subplots.Axes3DSubplot
+        """
+
+        if ax is None:
+            fig = plt.figure()
+            fig.set_size_inches(15, 10)
+            ax = fig.add_subplot(111, projection='3d')
+
+        # Find and include the first two  business cycles
+        crossings = (path.s > 0).astype(int).diff()
+        cross_ix = [path.index[i] for i in range(crossings.shape[0]) if
+                    crossings.iloc[i] != 0]
+
+        # Detrend the series
+        path = path.sub(path.mean())
+
+        # Smooth the series
+
+        ax.plot(path.h.rolling(int(1e2)).mean(),
+                path.s.rolling(int(1e2)).mean(),
+                path.z.rolling(int(1e2)).mean())
+        for point, v in self._crit_point_info.items():
+            if 'unstable' not in v['kind']:
+                ax.scatter(point[1], point[0], point[2], linewidths=1,
+                           color='red')
+        ax.set_ylabel('Sentiment (s)')
+        ax.set_xlabel('Information (h)')
+        ax.set_zlabel('Z')
+        ax.set_xlim(-1, 1)
+        ax.set_ylim(-1, 1)
+
+        if rotate:
+            # rotate the axes and update
+            for angle in range(0, 360):
+                ax.view_init(30, angle)
+                plt.draw()
+                plt.pause(.001)
+
+        return ax
+
+    def _sentiment_plot(self, path: pd.DataFrame, ax=None):
+        """
+
+        Parameters
+        ----------
+        path
+        ax
+
+        Returns
+        -------
+
+        """
+        if ax is None:
+            fig = plt.figure()
+            fig.set_size_inches(15, 10)
+            ax = fig.add_subplot(111)
+
+        # Analysis of the sentiment
+        crossings = (path.s > 0).astype(int).diff()
+        cross_ix = [path.index[i] for i in range(crossings.shape[0]) if
+                    crossings.iloc[i] != 0]
+        avg_dur = np.mean(pd.Series(cross_ix[::2]).diff())
+        std_dev = np.std(pd.Series(cross_ix[::2]).diff())
+
+        ax.plot(path.s)
+        ax.set_title("Sentiment and Production over time")
+        ax.set_ylim(-1, 1)
+        ax.set_ylabel("Sentiment (s)")
+
+        info = "Mean {:.0f}\n Std. {:.0f}".format(avg_dur, std_dev)
+        ax.text(0, 0.75, info, horizontalalignment='left',
+                verticalalignment='bottom')
+
+        # Equilibrium values
+        for point, v in self._crit_point_info.items():
+            if 'unstable' not in v['kind']:
+                ax.axhline(point[0], color='red', linestyle='--')
+
+        # Zero crossing
+        ax.axhline(0, color='black', linestyle='--', linewidth=0.5)
+
+        # Crossings of 0
+        # for ix in cross_ix:
+        # ax.axvline(ix, color='gray', linestyle='--', linewidth=0.5)
+
+        return ax
+
+    def _critical_points(self, args: tuple = None) -> list:
         """ Determine the critical points in the system, where v_s, v_h and v_z
         are equal to 0. Do this by substituting in for s, solving s, and then
         solving the remaining points.
@@ -125,149 +285,171 @@ class PhaseDiagram(object):
 
         sols = []
         min_options = {'eps': 1e-10}
+        standard_args = (
+            self.s_args["b1"], self.s_args["b1"], self.h_args["gamma"],
+            self.z_args["c2"], self.z_args["s0"], self.epsilon)
+        args = args if args is not None else standard_args
 
-        args = args if args is not None else self.crit_args
-
-        # Use minimiser to determine where the function crosses 0
+        # Use minimiser to determine where the function crosses 0 (s_dot=0)
         for x in np.linspace(-1, 1, 11):
             candidate = minimize(f, x0=x, bounds=[(-1, 1)], args=args,
                                  method='L-BFGS-B', options=min_options)
             if candidate.success:
-                sols.append(candidate.x[0])
+                # Check if this critical point is already in the solution list
+                if all([np.abs(sol - candidate.x[0]) >= 1e-7 for sol in sols]):
+                    sols.append(candidate.x[0])
 
-        # Eliminate duplicated solutions (artefact of multiple x0 in minimise)
-        filtered = []
-        for i, val in enumerate(sols):
-            found = False
-            for j in range(i + 1, len(sols)):
-                d = np.sum(np.abs(sols[j] - val))
-                if d < 1e-7:
-                    found = True
-                    break
-            if not found:
-                filtered.append(val)
-
-        # Determine h and z for each point
+        # Determine h and z for each critical point in s
         coordinates = []
-        for i, s in enumerate(filtered):
-            inner = (self.demand['c2'] * (s - self.demand['s0']) + self.epsilon)
+        for i, s in enumerate(sols):
+            inner = (self.z_args["c2"] * (s - self.z_args['s0']) + self.epsilon)
             h = np.tanh(self.h_args['gamma'] * inner)
-            z = np.log((self.times['y'] * inner + 1) / self.demand['tech0'])
+            z = np.log((self.z_args['tau'] * inner + 1) / self.z_args['tech0'])
             coordinates.append((s, h, z))
 
         return coordinates
 
-    def _point_classification(self, crit_points: list,
-                              plot: bool = True,
-                              vector_field: bool = True) -> dict:
+    def _point_classification(self, crit_points: list) -> dict:
 
         result = {}
 
         # Lambda function to pass the arguments and t=0
-        f = lambda x: self.velocity(0, x, self.times, self.demand, self.s_args,
-                                    self.h_args, use_k=False, ou=None)
+        f = lambda x: self.velocity(0, x, self.z_args, self.s_args, self.h_args,
+                                    use_k=False, ou=None)
 
         # Iterate through points and categorize
         for point in crit_points:
             jacobian = Jacobian(f)(point)
             eig_val, eig_vec = np.linalg.eig(jacobian)
-            result[point] = {
-                'evec': eig_vec,
-                'eval': eig_val
-            }
+            result[point] = {'evec': eig_vec, 'eval': eig_val}
+            # Nodes
+            if all(np.isreal(eig_val)):
+                if all(eig_val < 0):
+                    result[point]['kind'] = 'stable node'
+                elif all(eig_val > 0):
+                    result[point]['kind'] = 'unstable node'
+                else:
+                    result[point]['kind'] = 'unstable saddle'
+            elif np.sum(np.isreal(eig_val)) == 1:
+                if all(np.real(eig_val) < 0):
+                    result[point]['kind'] = 'stable focus'
+                elif all(np.real(eig_val) > 0):
+                    result[point]['kind'] = 'unstable focus'
+                else:
+                    result[point]['kind'] = 'unstable saddle-focus'
 
-            # Categorise Points
-            if all(np.real(eig_val) < 0):
-                result[point]['type'] = 'stable'
-            else:
-                result[point]['type'] = 'unstable'
+        self._crit_point_info = result
 
-        if plot:
+        return result
+
+    def phase_diagram(self, show: bool = True, ax=None, start=None):
+        """ Plot the phase diagram for the system under consideration including
+        vector arrows
+
+        Parameters
+        ----------
+        show    :   bool
+
+        Returns
+        -------
+        ax  :   plt.axes
+            can be used for further graphing purposes
+        """
+
+        if self._crit_point_info is None:
+            self._point_classification(self._critical_points())
+        if ax is None:
             fig = plt.figure()
             fig.set_size_inches(15, 10)
             ax = fig.add_subplot(111)
 
-            # Arrow arguments
-            a_arg = {'headwidth': 3, 'width': 0.003}
+        # Arrow arguments
+        a_arg = {'headwidth': 3, 'width': 0.003}
 
-            if vector_field:
-                points = np.linspace(-1, 1, 11)
-                s, h = np.meshgrid(points, points)
-                z = np.zeros(s.shape)
-                v_s, v_h, _ = self.velocity(0, [s, h, z], self.times,
-                                            self.demand, self.s_args,
-                                            self.h_args, use_k=False, ou=None)
-                ax.quiver(s, h, v_s, v_h, width=0.001, headwidth=8,
-                          color='gray')
+        if start is not None:
+            # Sample trajectories
+            trajectories = {}
+            z0 = start[-2]
+            k0 = start[-1]
+            for i in np.linspace(-0.8, 0.8, 9):
+                x0 = [-1, i, z0, k0]
+                path = self.simulate([x0], t_end=1e4, stochastic=False)
+                ax.plot(path.s, path.h, color='blue', linewidth=0.5)
+                x0 = [i, -1, z0, k0]
+                path = self.simulate([x0], t_end=1e4, stochastic=False)
+                ax.plot(path.s, path.h, color='blue', linewidth=0.5)
+                x0 = [1, i, z0, k0]
+                path = self.simulate([x0], t_end=1e4, stochastic=False)
+                ax.plot(path.s, path.h, color='blue', linewidth=0.5)
+                x0 = [i, 1, z0, k0]
+                path = self.simulate([x0], t_end=1e4, stochastic=False)
+                ax.plot(path.s, path.h, color='blue', linewidth=0.5)
 
-            for x, info in result.items():
-                # Plot arrows first, then overlay the solution points
-                for i in range(info['evec'].shape[1]):
-                    v = info['evec'][:, i] / np.linalg.norm(info['evec'][:, i])
-                    v = v / 3
-                    # Criteria for differentiating
-                    eig_real = np.isreal(info['eval'][i])
-                    eig_pos = np.real(info['eval'][i]) > 0
+        # Vector field
+        points = np.linspace(-1, 1, 11)
+        s, h = np.meshgrid(points, points)
+        z = np.zeros(s.shape)
+        v_s, v_h, _ = self.velocity(0, [s, h, z], self.z_args,
+                                    self.s_args, self.h_args,
+                                    use_k=False, ou=None)
+        ax.quiver(s, h, v_s, v_h, width=0.001, headwidth=8,
+                  color='gray')
 
-                    if eig_real and eig_pos:
-                        ax.quiver(x[0], x[1], -v[0], -v[1], pivot='tail',
-                                  color='blue', **a_arg)
-                        ax.quiver(x[0], x[1], v[0], v[1], pivot='tail',
-                                  color='blue', **a_arg)
-                    elif eig_real and not eig_pos:
-                        ax.quiver(x[0], x[1], -v[0], -v[1], pivot='tip',
-                                  color='blue', **a_arg)
-                        ax.quiver(x[0], x[1], v[0], v[1], pivot='tip',
-                                  color='blue', **a_arg)
-                    elif not eig_real and eig_pos:
-                        ax.quiver(x[0], x[1], np.real(v[0]) / 1.5,
-                                  np.real(v[1]) / 1.5, pivot='tail',
-                                  color='red')
-                        ax.quiver(x[0], x[1], -np.real(v[0]) / 1.5,
-                                  -np.real(v[1]) / 1.5, pivot='tail',
-                                  color='red')
-                    elif not eig_real and not eig_pos:
-                        ax.quiver(x[0], x[1], np.real(v[0]) / 1.5,
-                                  np.real(v[1]) / 1.5, pivot='tip',
-                                  color='green', **a_arg)
-                        ax.quiver(x[0], x[1], -np.real(v[0]) / 1.5,
-                                  -np.real(v[1]) / 1.5, pivot='tip',
-                                  color='green', **a_arg)
-                # Plot the solutions
-                if info['type'] == 'stable':
-                    ax.scatter(x[0], x[1], c='green', label='stable')
-                else:
-                    ax.scatter(x[0], x[1], c='red', label='unstable')
+        for x, info in self._crit_point_info.items():
+            # Plot arrows first, then overlay the solution points
+            for i in range(info['evec'].shape[1]):
+                v = info['evec'][:, i] / np.linalg.norm(info['evec'][:, i]) / 3
+                # Criteria for differentiating
+                eig_real = np.isreal(info['eval'][i])
+                eig_pos = np.real(info['eval'][i]) > 0
 
-            ax.legend()
-            ax.set_xlabel("s")
-            ax.set_ylabel("h")
-            ax.set_xticks(np.linspace(-1, 1, 11))
-            ax.set_yticks(np.linspace(-1, 1, 11))
+                if eig_real and eig_pos:
+                    ax.quiver(x[0], x[1], -v[0], -v[1], pivot='tail',
+                              color='blue', **a_arg)
+                    ax.quiver(x[0], x[1], v[0], v[1], pivot='tail',
+                              color='blue', **a_arg)
+                elif eig_real and not eig_pos:
+                    ax.quiver(x[0], x[1], -v[0], -v[1], pivot='tip',
+                              color='blue', **a_arg)
+                    ax.quiver(x[0], x[1], v[0], v[1], pivot='tip',
+                              color='blue', **a_arg)
+                elif not eig_real and eig_pos:
+                    ax.quiver(x[0], x[1], np.real(v[0]) / 1.5,
+                              np.real(v[1]) / 1.5, pivot='tail',
+                              color='red')
+                    ax.quiver(x[0], x[1], -np.real(v[0]) / 1.5,
+                              -np.real(v[1]) / 1.5, pivot='tail',
+                              color='red')
+                elif not eig_real and not eig_pos:
+                    ax.quiver(x[0], x[1], np.real(v[0]) / 1.5,
+                              np.real(v[1]) / 1.5, pivot='tip',
+                              color='green', **a_arg)
+                    ax.quiver(x[0], x[1], -np.real(v[0]) / 1.5,
+                              -np.real(v[1]) / 1.5, pivot='tip',
+                              color='green', **a_arg)
+
+            # Plot the solutions
+            if "unstable" in info['kind']:
+                ax.scatter(x[0], x[1], c='red', label=info['kind'])
+            else:
+                ax.scatter(x[0], x[1], c='green', label=info['kind'])
+
+        ax.legend()
+        ax.set_xlabel("s")
+        ax.set_ylabel("h")
+        ax.set_xticks(np.linspace(-1, 1, 11))
+        ax.set_yticks(np.linspace(-1, 1, 11))
+        ax.set_xlim(-1, 1)
+        ax.set_ylim(-1, 1)
+        if show and ax is None:
             plt.show()
 
-        return result
-
-    def sh_phase_diagram(self, plot=True, vector_field=True) -> dict:
-        """ Outward facing wrapper function to determine the critical points
-        and construct phase diagram in the (s,h) plane
-
-        Parameters
-        ----------
-        plot    :   bool
-        vector_field    :   bool
-
-        Returns
-        -------
-        info    :   dict
-        """
-
-        critical_points = self._find_critical_points()
-        return self._point_classification(critical_points, plot, vector_field)
+        return ax
 
     def stability_plot(self, gamma: np.ndarray,
                        epsilon: np.ndarray, plot: bool = True,
                        save: str = '') -> pd.DataFrame:
+
         """ Function to determine at which points either of the two equilibria
         become unstable
 
@@ -310,8 +492,10 @@ class PhaseDiagram(object):
 
         return df
 
-    def stochastic_simulation(self, init_val_list: list, t0: float = 1,
-                              t_end: float = 2e5, args=None) -> list:
+    def simulate(self, init_val_list: list, t0: float = 1,
+                 t_end: float = 2e5, args=None,
+                 stochastic: bool = True) -> list:
+
         """ Simulate the stochastically forced dynamical system in the
         (s,h,z)-space, i.e. under the condition that Kd<Ks for all periods
 
@@ -334,7 +518,11 @@ class PhaseDiagram(object):
 
         """
         paths = []
-        args = args if args is not None else self.args + [self.ou]
+        if stochastic:
+            args = (self.z_args, self.s_args, self.h_args, True,
+                    OrnsteinUhlenbeck(**self.ou_args))
+        else:
+            args = (self.z_args, self.s_args, self.h_args, True, None)
 
         # Gather solution candidates from different starting values
         for start in init_val_list:
@@ -350,7 +538,10 @@ class PhaseDiagram(object):
             df.loc[:, 'y'] = y
             paths.append(df)
 
-        return paths
+        if len(init_val_list) == 1:
+            return paths[0]
+        else:
+            return paths
 
     def gamma_theta_phases(self, start: list, gammas: list, sigmas: list,
                            plot: bool = True, sim_len: int = 2e5):
