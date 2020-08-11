@@ -2,9 +2,9 @@ import numpy as np
 
 
 class CapitalMarket(object):
-    def __init__(self, static: bool = True, depreciation: float = 0.2,
-                 pop_growth: float = 0.005, dynamic_kwargs: dict = {},
-                 clearing_form: str = 'min', v_excess: bool = True):
+    def __init__(self, static: bool = True, depreciation: float = 0.0002,
+                 pop_growth: float = 0, dynamic_kwargs: dict = {},
+                 v_excess: bool = True):
         """ Household class for the dynamic Solow model. At this point the
         household receives income and saves a proportion of this.
 
@@ -21,8 +21,6 @@ class CapitalMarket(object):
             parameters to pass to the dynamic capital demand system. Include:
             { tau_s: float, beta1: float, beta2: float, omega_h: float,
                 gamma: float }
-        clearing_form   :   str
-            type of market clearing
         v_excess    :   bool
             Whether to calculate the velocity of the excess
 
@@ -49,12 +47,11 @@ class CapitalMarket(object):
         self.depreciation = depreciation
         self.pop_growth = pop_growth
         self.dyn_demand = not static
-        self.clearing_form = clearing_form
         self.v_excess = v_excess
         self.d_kwargs = dynamic_kwargs
 
-    def v_demand(self, s: float, h: float, news: float,
-                 d_production: float, excess: float = 0):
+    def v_demand(self, s: float, h: float, news: float, d_production: float,
+                 excess: float = 0):
         """ Velocity of capital demand. If the demand is static (basic Solow)
         then we update the demand by the same interval as the supply to preserve
         the K_s = K_d relationship. If the demand is dynamic, we apply the dynamic
@@ -70,6 +67,8 @@ class CapitalMarket(object):
             Exogenous news
         d_production    :   float
             velocity of log production
+        excess  :   float
+            excess capital
 
         Returns
         -------
@@ -88,10 +87,10 @@ class CapitalMarket(object):
             v_s = (-s + np.tanh(force_s)) / self.d_kwargs['tau_s']
             # Information process
             force_h = sum([(self.d_kwargs['gamma'] * d_production),
-                           self.d_kwargs['c4'] * excess,
+                           self.d_kwargs['phi'] * excess,
                            news])
             v_h = (-h + np.tanh(force_h)) / self.d_kwargs['tau_h']
-            # Demand velocity based on new sentiment velocity
+            # Velocity of log capital demand
             v_kd = sum([self.d_kwargs['c1'] * v_s,
                         self.d_kwargs['c2'] * s,
                         self.d_kwargs['c3']])
@@ -134,18 +133,10 @@ class CapitalMarket(object):
         """
 
         if self.v_excess:
-            v_e = -excess + min([ks - kd, 0])
+            return min([ks, kd]), -excess + max([np.log(ks) - kd, 0])
         else:
-            v_e = 0
+            return min([ks, kd]), 0
 
-        if self.clearing_form == 'min':
-            return min([ks, kd]), v_e
-        elif self.clearing_form == 'kd':
-            return kd, v_e
-        elif self.clearing_form == 'ks':
-            return ks, v_e
-        else:
-            return None, v_e
 
     def eff_earnings(self, k: float, ks: float, k_ret: float):
         """ Effective earnings on capital
