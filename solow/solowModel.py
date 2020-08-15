@@ -3,6 +3,7 @@ import pandas as pd
 from matplotlib import pyplot as plt
 from numdifftools import Jacobian
 from scipy.integrate import solve_ivp
+from scipy.optimize import minimize
 
 from capital_market import CapitalMarket
 from firm import Firm
@@ -146,7 +147,163 @@ class SolowModel(object):
 
         return [v_y, v_ks, v_kd, v_s, v_h, v_tech, v_cons, v_e, v_r]
 
-    def _critical_points(self, t_end: float = 1e4):
+    def _log_step(self, t, values: list, y_args: dict, cap_args: dict,
+                  gamma: float, h_k: float = 10, h_h: float = 10,
+                  ou_process=None):
+        """
+
+        Parameters
+        ----------
+        t           :   float
+        values      :   list
+            values at time t, order: y, ks, kd, s, h, r
+        y_args      :   dict
+            arguments for production, incl. tech0, rho, e, tau_y, dep
+        cap_args    :   dict
+            arguments for capital mkt, incl. saving, depreciation, tau_h, tau_s,
+            c1, c2, beta1, beta2
+        gamma       :   float
+        heaviside   :   float
+        ou_process  :   OrnsteinUhlenbeck
+
+        Returns
+        -------
+        velocities  :   list
+        """
+        y, ks, kd, s, h, gamma_mult = values
+
+        if ou_process is not None:
+            news = ou_process.euler_maruyama(t)
+        else:
+            news = 0
+
+        k = kd - (kd - ks) * 0.5 * (1 + np.tanh(h_k * (kd - ks)))
+
+        # Production changes
+        z = y_args['rho'] * k + y_args['e'] * t - y
+        v_y = (np.log(y_args['tech0']) * np.exp(z) - 1) / y_args['tau']
+
+        # Capital supply changes
+        v_ks = (cap_args['saving'] * np.exp(y) - y_args['dep'] * np.exp(ks))
+        v_ks = v_ks / np.exp(ks)
+
+        # Capital demand changes
+        gamma_mult_n = 0.5 * (1 + np.tanh(h_h * (ks - kd)))
+        v_g_s = gamma_mult_n - gamma_mult
+        v_h = (-h + np.tanh(gamma * gamma_mult_n * v_y + news)) / cap_args['tau_h']
+
+        force_s = cap_args['beta1'] * s + cap_args['beta2'] * h
+        v_s = (-s + np.tanh(force_s)) / cap_args['tau_s']
+
+        v_kd = cap_args['c1'] * v_s + cap_args['c2'] * (s - cap_args['s0'])
+
+        return [v_y, v_ks, v_kd, v_s, v_h, v_g_s]
+
+    def overview(self, start: list, y_args: dict, cap_args: dict,
+                 gamma: float, h_k: float = 1e1, h_h: float = 1e1,
+                 theta: float = 0.2, sigma: float = 1, t_end: float = 1e5,
+                 save: str = ''):
+
+        """ Develop exploratory graphics for a set of parameters
+
+        Parameters
+        ----------
+        start       :   list
+            initial values, order = y, ks, kd, s, h, r
+        y_args      :   dict
+            arguments for production, incl. tech0, rho, e, tau_y, dep
+        cap_args    :   dict
+            arguments for capital mkt, incl. saving, depreciation, tau_h, tau_s,
+            c1, c2, beta1, beta2
+        gamma       :   float
+            Feedback strength
+        heaviside   :   float
+            Extent to which tanh will approximate the min()
+        theta,sigma :   float
+            Decay and diffusion of the Ornstein Uhlenbeck process
+        t_end       :   float
+        save        :   str
+        """
+
+        # Arguments
+        t_eval = np.arange(1, int(t_end) - 1)
+        ou = OrnsteinUhlenbeck(theta, sigma, 0)
+        args = (y_args, cap_args, gamma, h_k, h_h, ou)
+
+        # Generate path of variables
+        path = solve_ivp(self._log_step, t_span=(1, t_end), y0=start,
+                         method='RK45', t_eval=t_eval, args=args)
+        print(path.message)
+        df = pd.DataFrame(path.y.T, columns=['y', 'ks', 'kd', 's', 'h', 'g'])
+
+        k = df.kd - (df.kd - df.ks) * 0.5 * (1 + np.tanh(h_k * (df.kd - df.ks)))
+        e = pd.Series(np.arange(df.index[0], df.index[-1])) * y_args['e']
+        z = y_args['rho'] * k + e - df.y
+
+        # Generate a Figure
+        fig, ax_lst = plt.subplots(2,3)
+        fig.set_size_inches(12, 8)
+        props = dict(boxstyle='round', facecolor='white', alpha=0.5)
+
+        # Production
+        ax_lst[0, 0].plot(df.y)
+        ax_lst[0, 0].set_title("Log Production (y)")
+        ax_lst[0, 0].set_xlabel("Time")
+        ax_lst[0, 0].set_ylabel("Log Production")
+        ax_lst[0, 0].set_xlim(0, df.index[-1])
+
+        # Sentiment
+        ax_lst[0, 1].plot(df.s)
+        ax_lst[0, 1].set_title("Sentiment (s)")
+        ax_lst[0, 1].set_xlabel("Time")
+        ax_lst[0, 1].set_ylabel("Sentiment (s)")
+        ax_lst[0, 1].set_xlim(0, df.index[-1])
+
+        # Capital Markets
+        ax_lst[1, 0].plot(df.ks, label='Ks', color='Blue')
+        ax_lst[1, 0].plot(df.kd, label='Kd', color='Red')
+        ax_lst[1, 0].set_title("Capital Markets (ks, kd)")
+        ax_lst[1, 0].set_xlabel("Time")
+        ax_lst[1, 0].set_ylabel("Log Capital")
+        ax_lst[1, 0].set_xlim(0, df.index[-1])
+        ax_lst[1, 0].legend()
+
+        # Feedback strength
+        ax_lst[1, 1].plot(df.g)
+        ax_lst[1, 1].set_title("Feedback Strength Multiplier")
+        ax_lst[1, 1].set_xlabel("Time")
+        ax_lst[1, 1].set_ylabel("Multiplier")
+        ax_lst[1, 1].set_xlim(0, df.index[-1])
+
+        # Limit cycles in z
+        ax_lst[0, 2].plot(df.s, z)
+        ax_lst[0, 2].set_title("Z")
+        ax_lst[0, 2].set_xlabel("Sentiment")
+        ax_lst[0, 2].set_ylabel("Z")
+        ax_lst[0, 2].set_xlim(-1, 1)
+
+        # Starting point information
+        texts = ['y0: {:.1f}, '.format(start[0]),
+                 's0: {:.1f}, h0: {:.1f}'.format(start[3],start[4]),
+                 'ks0: {:.1f}, kd0: {:.1f}'.format(start[1],start[2]),
+                 'gamma:{:.1e}'.format(gamma),
+                 'h_h: {:.1e}'.format(h_h)]
+        ax_lst[1, 2].text(0.5, 0.5, '\n'.join(texts),
+                          transform=ax_lst[1, 2].transAxes, fontsize=14,
+                          verticalalignment='center',
+                          horizontalalignment='center', bbox=props)
+        ax_lst[1, 2].set_axis_off()
+
+        plt.tight_layout()
+        if save is not '':
+            plt.savefig(save, bbox_inches='tight')
+        plt.show()
+
+        return path
+
+    def _critical_points(self, start: list, y_args: dict, cap_args: dict,
+                         gamma: float, phi: float):
+
         """ Determine the critical points in the system, where v_s, v_h and v_z
         are equal to 0. Do this by substituting in for s, solving s, and then
         solving the remaining points.
@@ -157,40 +314,28 @@ class SolowModel(object):
             list of tuples for critical coordinates in (s,h,z)-space
         """
 
-        # Generate a set of different starting values
-        # Vary ks & kd i.e. ks>kd, ks<kd, ks=kd=k
-        starts = []
-        for cap in zip([1, 1, 2], [2, 1, 1]):
-            for s in np.linspace(-0.9, 0.9, 5):
-                starts.append([
-                    # Production
-                    np.exp(self.epsilon),
-                    # Capital
-                    cap[0],
-                    np.log(cap[1]),
-                    # Sentiment, Info, technology
-                    s, 0, np.exp(self.epsilon),
-                    # Other vars (cons, excess, interest)
-                    0, min([cap[0] - cap[1], 0]), 0])
+        args = (y_args, cap_args, gamma, phi)
+        min_options = {'eps': 1e-10}
+        bnds = [(-np.inf, np.inf), (-np.inf, np.inf), (-np.inf, np.inf),
+                (-1, 1), (-1, 1), (-np.inf, np.inf)]
 
-        # Agents involved in the economy
-        entities = {
-            'household': self.household,
-            'firm': self.firm,
-            'cap_mkt': self.cm
-        }
+        def f(point):
+            v = self._log_step(1, point, *args)
+            return sum([np.sqrt(v[3] ** 2), np.sqrt(v[4] ** 2)])
 
         solutions = []
 
-        for start in starts:
-            path = solve_ivp(self._step, t_span=(1, t_end), y0=start,
-                             max_step=1.0, method='RK45',
-                             t_eval=np.arange(int(1), int(t_end) - 1),
-                             args=(entities, None, self.epsilon))
-            df = self._path_df(path.y, 1, t_end)
-            candidate = df.iloc[-1, :]
-            if all([any(np.abs(sol - candidate) >= 1e-7) for sol in solutions]):
-                solutions.append(candidate)
+        # Find the critical points
+        for s in np.linspace(-0.9, 0.9, 7):
+            for h in np.linspace(-0.9, 0.9, 7):
+                start[3], start[4] = s, h
+                candidate = minimize(f, x0=np.array(start), bounds=bnds,
+                                     method='L-BFGS-B', options=min_options)
+                if candidate.success:
+                    # Check if this critical point is already in the solution list
+                    if all([np.sum(np.abs(sol - candidate.x)) >= 1e-5 for sol in
+                            solutions]):
+                        solutions.append(candidate.x)
 
         return solutions
 
@@ -232,6 +377,7 @@ class SolowModel(object):
         return result
 
     def _initial_values(self, given: dict):
+
         """ Function to manipulate an initial value dictionary for compatibility
         with the solver
 
@@ -414,7 +560,6 @@ class SolowModel(object):
         plt.show()
 
     def eff_interest(self, ks, k, r):
-
         return (k.divide(ks) * r) - self.cm.depreciation
 
     def _recessionSE(self, ds):
