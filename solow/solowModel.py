@@ -40,7 +40,7 @@ class SolowModel(object):
 
     def overview(self, start: list, y_args: dict, cap_args: dict, gamma: float,
                  h_k: float = 1e1, h_h: float = 1e1, theta: float = 0.2,
-                 sigma: float = 1, t_end: float = 1e5,
+                 sigma: float = 1, case: str = 'general', t_end: float = 1e5,
                  save: str = '') -> pd.DataFrame:
 
         """ Develop exploratory graphics for a set of parameters
@@ -60,14 +60,18 @@ class SolowModel(object):
             Extent to which tanh will approximate the min() for k and for gamma
         theta,sigma :   float
             Decay and diffusion of the Ornstein Uhlenbeck process
+        case        :   str
+            choice of case, can be 'general', 'limit_ks', 'limit_kd'
         t_end       :   float
         save        :   str
+
         """
 
         # Arguments
         t_eval = np.arange(1, int(t_end) - 1)
         ou = OrnsteinUhlenbeck(theta, sigma, 0)
-        args = (y_args, cap_args, gamma, h_k, h_h, ou)
+        assert case in ['general', 'limit_ks', 'limit_kd'], "Case not found"
+        args = (y_args, cap_args, gamma, h_k, h_h, ou, case)
 
         # Generate path of variables
         path = solve_ivp(self._step, t_span=(1, t_end), y0=start,
@@ -146,7 +150,8 @@ class SolowModel(object):
 
     def solve(self, start: list, t0: float = 0, t_end: float = 1e2,
               stoch: bool = True, theta: float = 0.2, sigma: float = 1.0,
-              y_args: dict = None, cap_args: dict = None) -> pd.DataFrame:
+              y_args: dict = None, cap_args: dict = None,
+              case: str = 'general') -> pd.DataFrame:
         """ Iterate through the Solow model to generate a path for output,
         capital (supply & demand), and sentiment
 
@@ -166,6 +171,8 @@ class SolowModel(object):
         cap_args    :   dict
             (optional) dictionary of capital markets arguments (incl. saving,
             tau_h, tau_s, c1, c2, beta1, beta2, gamma, h_h)
+        case        :   str
+            choice of case, can be 'general', 'limit_ks', 'limit_kd'
 
         Returns
         -------
@@ -176,15 +183,15 @@ class SolowModel(object):
         t_eval = np.arange(1, int(t_end) - 1)
         gamma, h_h = cap_args['gamma'], cap_args['h_h']
 
-        if y_args is None or cap_args is None:
+        if not stoch:
+            ou = None
+        elif y_args is None or cap_args is None:
             ou = self.ou
         else:
             ou = OrnsteinUhlenbeck(decay=theta, diffusion=sigma)
 
-        if stoch:
-            args = (y_args, cap_args, gamma, 10, h_h, ou)
-        else:
-            args = (y_args, cap_args, gamma, 10, h_h, None)
+        assert case in ['general', 'limit_ks', 'limit_kd'], "Case not found"
+        args = (y_args, cap_args, gamma, 10, h_h, ou, case)
 
         # Generate path of variables
         path = solve_ivp(self._step, t_span=(1, t_end), y0=start,
@@ -197,7 +204,8 @@ class SolowModel(object):
         return df
 
     def _step(self, t, values: list, y_args: dict, cap_args: dict, gamma: float,
-              h_k: float = 10, h_h: float = 10, ou_process=None):
+              h_k: float = 10, h_h: float = 10, ou_process=None,
+              case: str = 'general') -> list:
         """
 
         Parameters
@@ -212,9 +220,11 @@ class SolowModel(object):
             c1, c2, beta1, beta2
         gamma       :   float
             strength of the feedback effect
-        h_k, h_h   :   float
+        h_k, h_h    :   float
             Extent to which tanh will approximate the min() for k and for gamma
         ou_process  :   OrnsteinUhlenbeck
+        case        :   str
+            limiting cases can be chosen in this manner
 
         Returns
         -------
@@ -227,7 +237,12 @@ class SolowModel(object):
         else:
             news = 0
 
-        k = kd - (kd - ks) * 0.5 * (1 + np.tanh(h_k * (kd - ks)))
+        if case == 'general':
+            k = kd - (kd - ks) * 0.5 * (1 + np.tanh(h_k * (kd - ks)))
+        elif case == 'limit_ks':
+            k = ks
+        elif case == 'limit_kd':
+            k = kd
 
         # Production changes
         z = y_args['rho'] * k + y_args['e'] * t - y
