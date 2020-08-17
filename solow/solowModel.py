@@ -5,47 +5,24 @@ from numdifftools import Jacobian
 from scipy.integrate import solve_ivp
 from scipy.optimize import minimize
 
-from capital_market import CapitalMarket
-from firm import Firm
-from household import Household
 from ornstein_uhlenbeck import OrnsteinUhlenbeck
 
 
 class SolowModel(object):
-    def __init__(self, hh_kwargs: dict, firm_kwargs: dict, capital_kwargs: dict,
-                 epsilon: float, ou_kwargs: dict, clearing_form: str = 'min',
-                 v_excess: bool = True):
+    def __init__(self, y_args: dict, cap_args: dict, theta: float = 0.2,
+                 sigma: float = 1.0):
         """ Class implementing the Solow model
 
         Parameters
         ----------
-        hh_kwargs       :   dict
-            Keyword dictionary for the households. Format (see household docs):
-            {   savings_rate: float,
-                static: bool = True,
-                dynamic_kwargs: dict = {} }
-        firm_kwargs     :   dict
-            Keyword dictionary for the firm. Format (see firm docs):
-            {   prod_func: str = 'cobb-douglas',
-                parameters: dict = {} }
-        capital_kwargs  :   dict
-            Keyword dictionary for the firm. Format (see firm docs):
-            {   static: bool = True,
-                depreciation: float = 0.2,
-                pop_growth: float = 0.005
-                dynamic_kwargs: dict = {
-                    tau_s:float, beta1: float, beta2: float, tau_h:float,
-                    gamma:float, phi:float, c1: float, c2: float, c3: float,
-                } }
-        ou_kwargs   :   dict
-            Keyword dictionary for the Ornstein Uhlenbeck process. Format:
-            {   decay: float, drift: float, diffusion: float, t0: float }
-        epsilon   :   float
-            technology growth rate
-        clearing_form   :   str
-            type of market clearing
-        v_excess    :   bool
-            Whether to calculate the velocity of the excess
+        y_args  :   dict
+            (optional) dictionary of production arguments (incl. tech0, rho, e,
+            tau_y, dep)
+        cap_args    :   dict
+            (optional) dictionary of capital markets arguments (incl. saving,
+            tau_h, tau_s, c1, c2, beta1, beta2, gamma, h_h)
+        theta, sigma    :   float
+            decay and variance of the Ornstein-Uhlenbeck process
 
 
         Returns
@@ -53,99 +30,64 @@ class SolowModel(object):
         SolowModel instance
         """
         # Entities and Variables
-        self.epsilon = epsilon
-        self.firm = Firm(**firm_kwargs)
-        self.household = Household(**hh_kwargs)
-        self.cm = CapitalMarket(v_excess=v_excess, **capital_kwargs)
-        self.ou_process = OrnsteinUhlenbeck(**ou_kwargs)
+        self.y_args = y_args
+        self.cap_args = cap_args
+        self.ou = OrnsteinUhlenbeck(decay=theta, diffusion=sigma)
 
         # Storage
         self.path = None
 
-    def solve(self, initial_values: dict, t0: float = 0, t_end: float = 1e2,
-              stoch: bool = True):
+    def solve(self, start: list, t0: float = 0, t_end: float = 1e2,
+              stoch: bool = True, theta: float = 0.2, sigma: float = 1.0,
+              y_args: dict = None, cap_args: dict = None):
         """ Iterate through the Solow model to generate a path for output,
         capital (supply & demand), and sentiment
 
         Parameters
         ----------
-        initial_values  :   dict
-            initial value dictionary, must include 'y','ks','tech'. Can include
-            'kd','s','h'
-        t0
-        t_end
+        start       :   list
+            initial values, order = y, ks, kd, s, h, r
+        t0, t_end   :   float
+            integration interval
+        stoch       :   bool
+            whether to solve the system with a stochastic parameter
+        theta, sigma:   float
+            decay and variance of the Ornstein-Uhlenbeck process
+        y_args      :   dict
+            (optional) dictionary of production arguments (incl. tech0, rho, e,
+            tau_y, dep)
+        cap_args    :   dict
+            (optional) dictionary of capital markets arguments (incl. saving,
+            tau_h, tau_s, c1, c2, beta1, beta2, gamma, h_h)
 
         Returns
         -------
 
         """
-        # Agents involved in the economy
-        entities = {
-            'household': self.household,
-            'firm': self.firm,
-            'cap_mkt': self.cm,
-        }
+
+        # Arguments
+        t_eval = np.arange(1, int(t_end) - 1)
+        gamma, h_h = cap_args['gamma'], cap_args['h_h']
+
+        if y_args is None or cap_args is None:
+            ou = self.ou
+        else:
+            ou = OrnsteinUhlenbeck(decay=theta, diffusion=sigma)
+
         if stoch:
-            args = (entities, self.ou_process, self.epsilon)
+            args = (y_args, cap_args, gamma, 10, h_h, ou)
         else:
-            args = (entities, None, self.epsilon)
+            args = (y_args, cap_args, gamma, 10, h_h, None)
 
-        # Solve the initial value problem
-        path = solve_ivp(self._step, t_span=(t0, t_end), y0=initial_values,
-                         max_step=1.0, method='RK45',
-                         t_eval=np.arange(int(t0), int(t_end) - 1), args=args)
-
-        self.path = path
-        self.vars = self._path_df(path.y, t0, t_end)
-
-        # Errors
+        # Generate path of variables
+        path = solve_ivp(self._log_step, t_span=(1, t_end), y0=start,
+                         method='RK45', t_eval=t_eval, args=args)
         print(path.message)
+        df = pd.DataFrame(path.y.T, columns=['y', 'ks', 'kd', 's', 'h', 'g'])
 
-        return self._path_df(path.y, t0, t_end)
+        self.path = df
 
-    def _step(self, t, values: list, entities: dict,
-              ou_process: OrnsteinUhlenbeck,
-              epsilon: float):
-
-        # Unpack inputs
-        y, ks, kd, s, h, tech, cons, excess, r = values
-
-        v_tech = epsilon * tech
-
-        if ou_process is not None:
-            news = ou_process.euler_maruyama(t)
-        else:
-            news = 0
-
-        # Determine consumption and investment of hh at time t
-        consumption, investment = entities['household'].consumption(y)
-        v_cons = consumption - cons
-
-        # Capital level given the supply and demand
-        k = min(ks, np.exp(kd))
-        v_e = -excess + np.log(ks) - kd
-
-        # Determine new production level and velocity of production
-        factors = {'k': k, 'n': 1, 'tech': tech}
-        y_new, k_ret = entities['firm'].production(factors)
-        v_y = entities['firm'].production_velocity(curr=y, new=y_new)
-        v_r = -r + k_ret  # entities['cap_mkt'].eff_earnings(k, ks, k_ret)
-
-        # Capital supply ( - depreciation + new investment)
-        v_ks = entities['cap_mkt'].v_supply(ks, investment)
-
-        # Determine the velocity of capital demand
-        v_ln_y = entities['firm'].ln_vel(tech, k, y)  # v_y / y  #
-        if entities['cap_mkt'].dyn_demand:
-            temp = (np.log(ks) - kd)  # /ks
-            # temp = (ks - np.exp(kd))/min([ks,np.exp(kd)])
-            temp = max([(ks - np.exp(kd)) / ks, 0])
-            v_kd, v_s, v_h = entities['cap_mkt'].v_demand(s, h, news, v_ln_y,
-                                                          temp)
-        else:
-            v_kd, v_s, v_h = [0, 0, 0]
-
-        return [v_y, v_ks, v_kd, v_s, v_h, v_tech, v_cons, v_e, v_r]
+        return df
 
     def _log_step(self, t, values: list, y_args: dict, cap_args: dict,
                   gamma: float, h_k: float = 10, h_h: float = 10,
@@ -190,7 +132,8 @@ class SolowModel(object):
         # Capital demand changes
         gamma_mult_n = 0.5 * (1 + np.tanh(h_h * (ks - kd)))
         v_g_s = gamma_mult_n - gamma_mult
-        v_h = (-h + np.tanh(gamma * gamma_mult_n * v_y + news)) / cap_args['tau_h']
+        v_h = (-h + np.tanh(gamma * gamma_mult_n * v_y + news)) / cap_args[
+            'tau_h']
 
         force_s = cap_args['beta1'] * s + cap_args['beta2'] * h
         v_s = (-s + np.tanh(force_s)) / cap_args['tau_s']
@@ -217,8 +160,8 @@ class SolowModel(object):
             c1, c2, beta1, beta2
         gamma       :   float
             Feedback strength
-        heaviside   :   float
-            Extent to which tanh will approximate the min()
+        h_k, h_h   :   float
+            Extent to which tanh will approximate the min() for k and for gamma
         theta,sigma :   float
             Decay and diffusion of the Ornstein Uhlenbeck process
         t_end       :   float
@@ -241,7 +184,7 @@ class SolowModel(object):
         z = y_args['rho'] * k + e - df.y
 
         # Generate a Figure
-        fig, ax_lst = plt.subplots(2,3)
+        fig, ax_lst = plt.subplots(2, 3)
         fig.set_size_inches(12, 8)
         props = dict(boxstyle='round', facecolor='white', alpha=0.5)
 
@@ -251,6 +194,7 @@ class SolowModel(object):
         ax_lst[0, 0].set_xlabel("Time")
         ax_lst[0, 0].set_ylabel("Log Production")
         ax_lst[0, 0].set_xlim(0, df.index[-1])
+        ax_lst[0, 0].ticklabel_format(style='sci', axis='x', scilimits=(0, 0))
 
         # Sentiment
         ax_lst[0, 1].plot(df.s)
@@ -258,6 +202,7 @@ class SolowModel(object):
         ax_lst[0, 1].set_xlabel("Time")
         ax_lst[0, 1].set_ylabel("Sentiment (s)")
         ax_lst[0, 1].set_xlim(0, df.index[-1])
+        ax_lst[0, 1].ticklabel_format(style='sci', axis='x', scilimits=(0, 0))
 
         # Capital Markets
         ax_lst[1, 0].plot(df.ks, label='Ks', color='Blue')
@@ -266,6 +211,7 @@ class SolowModel(object):
         ax_lst[1, 0].set_xlabel("Time")
         ax_lst[1, 0].set_ylabel("Log Capital")
         ax_lst[1, 0].set_xlim(0, df.index[-1])
+        ax_lst[1, 0].ticklabel_format(style='sci', axis='x', scilimits=(0, 0))
         ax_lst[1, 0].legend()
 
         # Feedback strength
@@ -274,6 +220,7 @@ class SolowModel(object):
         ax_lst[1, 1].set_xlabel("Time")
         ax_lst[1, 1].set_ylabel("Multiplier")
         ax_lst[1, 1].set_xlim(0, df.index[-1])
+        ax_lst[1, 1].ticklabel_format(style='sci', axis='x', scilimits=(0, 0))
 
         # Limit cycles in z
         ax_lst[0, 2].plot(df.s, z)
@@ -282,10 +229,15 @@ class SolowModel(object):
         ax_lst[0, 2].set_ylabel("Z")
         ax_lst[0, 2].set_xlim(-1, 1)
 
+        for i in ax_lst.shape[0]:
+            for j in ax_lst.shape[1]:
+                ax_lst[i, j].ticklabel_format(style='sci', axis='x',
+                                              scilimits=(0, 0))
+
         # Starting point information
         texts = ['y0: {:.1f}, '.format(start[0]),
-                 's0: {:.1f}, h0: {:.1f}'.format(start[3],start[4]),
-                 'ks0: {:.1f}, kd0: {:.1f}'.format(start[1],start[2]),
+                 's0: {:.1f}, h0: {:.1f}'.format(start[3], start[4]),
+                 'ks0: {:.1f}, kd0: {:.1f}'.format(start[1], start[2]),
                  'gamma:{:.1e}'.format(gamma),
                  'h_h: {:.1e}'.format(h_h)]
         ax_lst[1, 2].text(0.5, 0.5, '\n'.join(texts),
@@ -375,64 +327,6 @@ class SolowModel(object):
         self._crit_point_info = result
 
         return result
-
-    def _initial_values(self, given: dict):
-
-        """ Function to manipulate an initial value dictionary for compatibility
-        with the solver
-
-        Parameters
-        ----------
-        given   :   dict
-            dictionary of initial values. Must include at least: 'y','ks','tech'
-
-        Returns
-        -------
-        initial_values  :   list
-            list of initial values for the solver.
-            Order: y, ks, kd, s, h, tech, cons, excess, r
-        """
-
-        initial_values = [given['y'], given['ks']]
-        if self.cm.dyn_demand:
-            try:
-                initial_values.extend([given['kd'], given['s'], given['h']])
-            except KeyError:
-                print("For dynamical demand system, provide kd, s and h")
-            excess = max([given['ks'] - np.exp(given['kd']), 0])
-        else:
-            initial_values.extend([np.log(given['ks']), 0, 0])
-            excess = 0
-
-        initial_values.append(given['tech'])
-        initial_values.append(self.household.savings_rate * given['y'])
-        initial_values.append(excess)
-        # Effective interest rate
-        k = min([given['ks'], np.exp(given['kd'])])
-        _, k_ret = self.firm.production({'k': k, 'tech': given['tech']})
-        r = (k / given['ks']) * (
-                k_ret - self.cm.depreciation) - self.cm.pop_growth
-        initial_values.append(k_ret)
-        return initial_values
-
-    @staticmethod
-    def _path_df(array, t0, t_end):
-        """Convert the numpy array outputted by the solve_ivp to a pandas
-        dataframe
-
-        Parameters
-        ----------
-        array   :   np.array
-            rows are the variables and columns are the time
-
-        Returns
-        -------
-        df  :   pd.DataFrame
-        """
-
-        cols = ['y', 'ks', 'kd', 's', 'h', 'tech', 'cons', 'excess', 'r']
-        # index = np.arange(int(t0), int(t_end) - 1)
-        return pd.DataFrame(array.T, columns=cols)  # , index=index)
 
     def visualise(self, save: str = '', case: str = 'general'):
         """ Generate a plot to visualise the outputs"""
@@ -558,26 +452,6 @@ class SolowModel(object):
         if save is not '':
             plt.savefig(save, bbox_inches='tight')
         plt.show()
-
-    def eff_interest(self, ks, k, r):
-        return (k.divide(ks) * r) - self.cm.depreciation
-
-    def _recessionSE(self, ds):
-        """returns list of (startdate,enddate) tuples for recessions"""
-        start, end = [], []
-        # Check to see if we start in recession
-        if ds.iloc[0] == 1: start.extend([ds.index[0]])
-        # add recession start and end dates
-        for i in range(1, ds.shape[0]):
-            a = ds.iloc[i - 1]
-            b = ds.iloc[i]
-            if a == 0 and b == 1:
-                start.extend([ds.index[i]])
-            elif a == 1 and b == 0:
-                end.extend([ds.index[i - 1]])
-        # if there is a recession at the end, add the last date
-        if len(start) > len(end): end.extend([ds.index[-1]])
-        return start, end
 
     def recession_timing(self, gdp: pd.Series, timescale=63):
         """ Calculate the start and end of recessions on the basis of gdp growth.
