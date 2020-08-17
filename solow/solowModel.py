@@ -253,8 +253,13 @@ class SolowModel(object):
         v_ks = v_ks / np.exp(ks)
 
         # Capital demand changes
-        gamma_mult_n = 0.5 * (1 + np.tanh(h_h * (ks - kd)))
-        v_g_s = gamma_mult_n - gamma_mult
+        if case is 'limit_kd':
+            gamma_mult_n = 1
+            v_g_s = 0
+        else:
+            gamma_mult_n = 0.5 * (1 + np.tanh(h_h * (ks - kd)))
+            v_g_s = gamma_mult_n - gamma_mult
+
         v_h = (-h + np.tanh(gamma * gamma_mult_n * v_y + news)) / cap_args[
             'tau_h']
 
