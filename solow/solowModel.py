@@ -75,11 +75,11 @@ class SolowModel(object):
         ou = OrnsteinUhlenbeck(theta, sigma, 0)
         # assert case in self.case_list, "Case not found"
         args = (y_args, cap_args, gamma, h_k, h_h, ou, case)
+        start.append(cap_args['saving'])
 
         # Generate path of variables
-        path = solve_ivp(self._step, t_span=(1, t_end),
-                         y0=start + [cap_args['saving']],
-                         method='RK45', t_eval=t_eval, args=args, atol=1e-5)
+        path = solve_ivp(self._step, t_span=(1, t_end), y0=start, method='RK45',
+                         t_eval=t_eval, args=args, atol=1e-5)
         print(path.message)
         df = pd.DataFrame(path.y.T,
                           columns=['y', 'ks', 'kd', 's', 'h', 'g', 'saving'])
@@ -89,44 +89,55 @@ class SolowModel(object):
         z = y_args['rho'] * k + e - df.y
 
         rates = self.long_term_growth(y_args, cap_args, gamma)
+        tgt = cap_args['beta2'] * gamma * rates[0]
+        long_term_s = self.s_bar(tgt, cap_args['beta1'])
 
         # Generate a Figure
-        fig, ax_lst = plt.subplots(2, 3)
-        fig.set_size_inches(12, 8)
+        fig, ax_lst = plt.subplots(1, 3)
+        fig.set_size_inches(12, 4)
         props = dict(boxstyle='round', facecolor='white', alpha=0.5)
         t = df.index.values
 
         # Production
-        ax_lst[0, 0].plot(t, t * rates[0])
-        ax_lst[0, 0].plot(df.y)
-        ax_lst[0, 0].set_title("Log Production (y)")
-        ax_lst[0, 0].set_xlabel("Time")
-        ax_lst[0, 0].set_ylabel("Log Production")
-        ax_lst[0, 0].set_xlim(0, t[-1])
-        ax_lst[0, 0].ticklabel_format(style='sci', axis='x', scilimits=(0, 0))
-
-        # Sentiment
-        ax_lst[0, 1].plot(df.s)
-        ax_lst[0, 1].set_title("Sentiment (s)")
-        ax_lst[0, 1].set_xlabel("Time")
-        ax_lst[0, 1].set_ylabel("Sentiment (s)")
-        ax_lst[0, 1].set_xlim(0, df.index[-1])
-        ax_lst[0, 1].ticklabel_format(style='sci', axis='x', scilimits=(0, 0))
+        ax_lst[0].plot(t, df.y.iloc[0] + t * rates[0], linestyle='--',
+                       color='Orange', label='Asymp. Growth')
+        ax_lst[0].plot(df.y, color='Blue', label='Production')
+        ax_lst[0].set_title("Log Production (y)")
+        ax_lst[0].set_xlabel("Time")
+        ax_lst[0].set_ylabel("Log Production")
+        ax_lst[0].set_xlim(0, t[-1])
+        ax_lst[0].ticklabel_format(style='sci', axis='x', scilimits=(0, 0))
+        ax_lst[0].legend()
 
         # Capital Markets
-        ax_lst[1, 0].plot(t, rates[1] * t, label='Ks Asymp.', color='Blue',
-                          alpha=0.5)
-        ax_lst[1, 0].plot(t, rates[2] * t, label='Kd Asymp.', color='Orange',
-                          alpha=0.5)
-        ax_lst[1, 0].plot(df.ks, label='Ks', color='Blue')
-        ax_lst[1, 0].plot(df.kd, label='Kd', color='Orange')
-        ax_lst[1, 0].set_title("Capital Markets (ks, kd)")
-        ax_lst[1, 0].set_xlabel("Time")
-        ax_lst[1, 0].set_ylabel("Log Capital")
-        ax_lst[1, 0].set_xlim(0, df.index[-1])
-        ax_lst[1, 0].ticklabel_format(style='sci', axis='x', scilimits=(0, 0))
-        ax_lst[1, 0].legend()
+        props = {'linestyle': '--', 'alpha': 0.7}
+        ax_lst[1].plot(t, df.ks.iloc[0] + rates[1] * t, label='Ks Asymp.',
+                       color='Blue', **props)
+        ax_lst[1].plot(t, df.kd.iloc[0] + rates[2] * t, label='Kd Asymp.',
+                       color='Orange', **props)
+        ax_lst[1].plot(df.ks, label='Ks', color='Blue')
+        ax_lst[1].plot(df.kd, label='Kd', color='Orange')
+        ax_lst[1].set_title("Capital Markets (ks, kd)")
+        ax_lst[1].set_xlabel("Time")
+        ax_lst[1].set_ylabel("Log Capital")
+        ax_lst[1].set_xlim(0, df.index[-1])
+        ax_lst[1].ticklabel_format(style='sci', axis='x', scilimits=(0, 0))
+        ax_lst[1].legend()
 
+        # Sentiment
+        props = {'linestyle': '--', 'alpha': 0.7, 'color': 'Orange'}
+        ax_lst[2].axhline(long_term_s[0], **props,
+                          label='s_bar {:.4f} & {:.4f}'.format(*long_term_s))
+        ax_lst[2].axhline(long_term_s[1], **props)
+        ax_lst[2].plot(df.s, label='Sentiment', color='Blue')
+        ax_lst[2].set_title("Sentiment (s)")
+        ax_lst[2].set_xlabel("Time")
+        ax_lst[2].set_ylabel("Sentiment (s)")
+        ax_lst[2].set_xlim(0, df.index[-1])
+        ax_lst[2].ticklabel_format(style='sci', axis='x', scilimits=(0, 0))
+        ax_lst[2].legend()
+
+        """
         # Feedback strength
         ax_lst[1, 1].plot(df.g)
         ax_lst[1, 1].set_title("Feedback Strength Multiplier")
@@ -153,6 +164,7 @@ class SolowModel(object):
                           verticalalignment='center',
                           horizontalalignment='center', bbox=props)
         ax_lst[1, 2].set_axis_off()
+        """
 
         plt.tight_layout()
         if save is not '':
@@ -220,10 +232,9 @@ class SolowModel(object):
 
         return df
 
-
     def _step(self, t, values: list, y_args: dict, cap_args: dict,
-                   gamma: float, h_k: float = 10, h_h: float = 10,
-                   ou_process=None, case: str = 'general') -> list:
+              gamma: float, h_k: float = 10, h_h: float = 10,
+              ou_process=None, case: str = 'general') -> list:
         """
 
         Parameters
@@ -264,7 +275,10 @@ class SolowModel(object):
             k = kd - (kd - ks) * 0.5 * (1 + np.tanh(h_k * (kd - ks)))
 
         # Dynamic Saving
-        v_saving = 0 # -saving + (k / ks) * cap_args['saving']
+        if case is 'dynamic_saving':
+            v_saving = -saving + (k / ks) * cap_args['saving']
+        else:
+            v_saving = 0
 
         # Production changes
         z = y_args['rho'] * k + y_args['e'] * t - y
@@ -321,6 +335,43 @@ class SolowModel(object):
         psi_ks = psi_y
         psi_kd = (temp * y_args['e']) / (1 - 0.75 * y_args['rho'] * temp)
         return [psi_y, psi_ks, psi_kd]
+
+    def s_bar(self, tgt: float, b1: float = 1.1, graph: bool = False) -> list:
+
+        def f(x): return 0.5 * np.log((1 + x) / (1 - x)) - b1 * x
+
+        g = lambda x: (f(x) - tgt) ** 2
+
+        s_plus = minimize(g, x0=np.array([0.5]), bounds=((-0.99, 0.99),),
+                          tol=1e-15)
+        s_minus = minimize(g, x0=np.array([-0.5]), bounds=((-0.99, 0.99),),
+                           tol=1e-15)
+
+        if graph:
+            fig = plt.figure()
+            ax = fig.add_subplot(1, 1, 1)
+            ax.set_xlabel('s')
+            ax.set_ylabel('f(s)')
+            ax.set_title('Graphical Solution to Long-term Sentiment Equilibria')
+            # Axes to the middle
+            ax.axvline(0, color='gray', alpha=0.7)
+            ax.axhline(0, color='gray', alpha=0.7)
+            ax.axhline(tgt, label='Tgt at {:.3f}'.format(tgt), color='red')
+
+            x = np.linspace(-1, 1, 101)
+            ax.plot(x, f(x))
+            ax.scatter(s_plus.x[0], 0,
+                       label='Positive Eq. at s={:.5f}'.format(s_plus.x[0]),
+                       marker='x', color='black')
+            ax.scatter(s_minus.x[0], 0,
+                       label='Negative Eq. at s={:.5f}'.format(s_minus.x[0]),
+                       marker='x', color='black')
+            ax.set_xlim(-1, 1)
+            ax.legend()
+            plt.tight_layout()
+            plt.show()
+
+        return [s_plus.x[0], s_minus.x[0]]
 
     def recession_timing(self, gdp: pd.Series = None,
                          timescale: float = 63) -> pd.DataFrame:
