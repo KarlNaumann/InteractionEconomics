@@ -2,7 +2,7 @@ import numpy as np
 
 
 class OrnsteinUhlenbeck(object):
-    def __init__(self, decay: float, drift: float, diffusion: float,
+    def __init__(self, decay: float, diffusion: float, drift: float=0,
                  t0: float = 0):
         """ Class implementing the Ornstein-Uhlenbeck process
 

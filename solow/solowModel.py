@@ -38,6 +38,9 @@ class SolowModel(object):
         self.path = None
         self.recessions = None
 
+        # Properties
+        self.case_list = ['general', 'general_r', 'limit_ks', 'limit_kd']
+
     def overview(self, start: list, y_args: dict, cap_args: dict, gamma: float,
                  h_k: float = 1e1, h_h: float = 1e1, theta: float = 0.2,
                  sigma: float = 1, case: str = 'general', t_end: float = 1e5,
@@ -70,30 +73,36 @@ class SolowModel(object):
         # Arguments
         t_eval = np.arange(1, int(t_end) - 1)
         ou = OrnsteinUhlenbeck(theta, sigma, 0)
-        assert case in ['general', 'limit_ks', 'limit_kd'], "Case not found"
+        # assert case in self.case_list, "Case not found"
         args = (y_args, cap_args, gamma, h_k, h_h, ou, case)
 
         # Generate path of variables
-        path = solve_ivp(self._step, t_span=(1, t_end), y0=start,
-                         method='RK45', t_eval=t_eval, args=args)
+        path = solve_ivp(self._step, t_span=(1, t_end),
+                         y0=start + [cap_args['saving']],
+                         method='RK45', t_eval=t_eval, args=args, atol=1e-5)
         print(path.message)
-        df = pd.DataFrame(path.y.T, columns=['y', 'ks', 'kd', 's', 'h', 'g'])
+        df = pd.DataFrame(path.y.T,
+                          columns=['y', 'ks', 'kd', 's', 'h', 'g', 'saving'])
 
         k = df.kd - (df.kd - df.ks) * 0.5 * (1 + np.tanh(h_k * (df.kd - df.ks)))
         e = pd.Series(np.arange(df.index[0], df.index[-1])) * y_args['e']
         z = y_args['rho'] * k + e - df.y
 
+        rates = self.long_term_growth(y_args, cap_args, gamma)
+
         # Generate a Figure
         fig, ax_lst = plt.subplots(2, 3)
         fig.set_size_inches(12, 8)
         props = dict(boxstyle='round', facecolor='white', alpha=0.5)
+        t = df.index.values
 
         # Production
+        ax_lst[0, 0].plot(t, t * rates[0])
         ax_lst[0, 0].plot(df.y)
         ax_lst[0, 0].set_title("Log Production (y)")
         ax_lst[0, 0].set_xlabel("Time")
         ax_lst[0, 0].set_ylabel("Log Production")
-        ax_lst[0, 0].set_xlim(0, df.index[-1])
+        ax_lst[0, 0].set_xlim(0, t[-1])
         ax_lst[0, 0].ticklabel_format(style='sci', axis='x', scilimits=(0, 0))
 
         # Sentiment
@@ -105,8 +114,12 @@ class SolowModel(object):
         ax_lst[0, 1].ticklabel_format(style='sci', axis='x', scilimits=(0, 0))
 
         # Capital Markets
+        ax_lst[1, 0].plot(t, rates[1] * t, label='Ks Asymp.', color='Blue',
+                          alpha=0.5)
+        ax_lst[1, 0].plot(t, rates[2] * t, label='Kd Asymp.', color='Orange',
+                          alpha=0.5)
         ax_lst[1, 0].plot(df.ks, label='Ks', color='Blue')
-        ax_lst[1, 0].plot(df.kd, label='Kd', color='Red')
+        ax_lst[1, 0].plot(df.kd, label='Kd', color='Orange')
         ax_lst[1, 0].set_title("Capital Markets (ks, kd)")
         ax_lst[1, 0].set_xlabel("Time")
         ax_lst[1, 0].set_ylabel("Log Capital")
@@ -123,7 +136,7 @@ class SolowModel(object):
         ax_lst[1, 1].ticklabel_format(style='sci', axis='x', scilimits=(0, 0))
 
         # Limit cycles in z
-        ax_lst[0, 2].plot(df.s, z)
+        ax_lst[0, 2].plot(df.s, z, alpha=0.5)
         ax_lst[0, 2].set_title("Z")
         ax_lst[0, 2].set_xlabel("Sentiment")
         ax_lst[0, 2].set_ylabel("Z")
@@ -180,8 +193,11 @@ class SolowModel(object):
         """
 
         # Arguments
-        t_eval = np.arange(1, int(t_end) - 1)
-        gamma, h_h = cap_args['gamma'], cap_args['h_h']
+        t_eval = np.arange(int(t0), int(t_end) - 1)
+        if cap_args is None:
+            cap_args = self.cap_args
+        if y_args is None:
+            y_args = self.y_args
 
         if not stoch:
             ou = None
@@ -190,11 +206,12 @@ class SolowModel(object):
         else:
             ou = OrnsteinUhlenbeck(decay=theta, diffusion=sigma)
 
-        assert case in ['general', 'limit_ks', 'limit_kd'], "Case not found"
+        assert case in self.case_list, "Case not found"
+        gamma, h_h = self.cap_args['gamma'], self.cap_args['h_h']
         args = (y_args, cap_args, gamma, 10, h_h, ou, case)
 
         # Generate path of variables
-        path = solve_ivp(self._step, t_span=(1, t_end), y0=start,
+        path = solve_ivp(self._step, t_span=(t0, t_end), y0=start,
                          method='RK45', t_eval=t_eval, args=args)
         print(path.message)
         df = pd.DataFrame(path.y.T, columns=['y', 'ks', 'kd', 's', 'h', 'g'])
@@ -203,9 +220,10 @@ class SolowModel(object):
 
         return df
 
-    def _step(self, t, values: list, y_args: dict, cap_args: dict, gamma: float,
-              h_k: float = 10, h_h: float = 10, ou_process=None,
-              case: str = 'general') -> list:
+
+    def _step(self, t, values: list, y_args: dict, cap_args: dict,
+                   gamma: float, h_k: float = 10, h_h: float = 10,
+                   ou_process=None, case: str = 'general') -> list:
         """
 
         Parameters
@@ -230,47 +248,82 @@ class SolowModel(object):
         -------
         velocities  :   list
         """
-        y, ks, kd, s, h, gamma_mult = values
+        y, ks, kd, s, h, gamma_mult, saving = values
 
         if ou_process is not None:
             news = ou_process.euler_maruyama(t)
         else:
             news = 0
 
-        if case == 'general':
-            k = kd - (kd - ks) * 0.5 * (1 + np.tanh(h_k * (kd - ks)))
-        elif case == 'limit_ks':
-            k = ks
-        elif case == 'limit_kd':
+        # Market Clearing
+        if case is 'limit_kd':
             k = kd
+        elif case is 'limit_ks':
+            k = ks
+        else:
+            k = kd - (kd - ks) * 0.5 * (1 + np.tanh(h_k * (kd - ks)))
+
+        # Dynamic Saving
+        v_saving = 0 # -saving + (k / ks) * cap_args['saving']
 
         # Production changes
         z = y_args['rho'] * k + y_args['e'] * t - y
         v_y = (np.log(y_args['tech0']) * np.exp(z) - 1) / y_args['tau']
 
         # Capital supply changes
-        v_ks = (cap_args['saving'] * np.exp(y) - y_args['dep'] * np.exp(ks))
-        v_ks = v_ks / np.exp(ks)
+        v_ks = (saving * np.exp(y - ks) - y_args['dep'] * np.exp(k - ks))
 
-        # Capital demand changes
+        # Gamma multiplier only if there is no limiting kd case
         if case is 'limit_kd':
             gamma_mult_n = 1
-            v_g_s = 0
         else:
             gamma_mult_n = 0.5 * (1 + np.tanh(h_h * (ks - kd)))
-            v_g_s = gamma_mult_n - gamma_mult
 
-        v_h = (-h + np.tanh(gamma * gamma_mult_n * v_y + news)) / cap_args[
-            'tau_h']
+        v_g_s = gamma_mult_n - gamma_mult
 
+        # Information velocity
+        if case is 'tau_h0':
+            v_h = 0
+            h = np.tanh(gamma * gamma_mult_n * v_y + news)
+        else:
+            v_h = -h + np.tanh(gamma * gamma_mult_n * v_y + news)
+            v_h = v_h / cap_args['tau_h']
+
+        # Sentiment Velocity
         force_s = cap_args['beta1'] * s + cap_args['beta2'] * h
-        v_s = (-s + np.tanh(force_s)) / cap_args['tau_s']
+        if case is 'tau_s0':
+            v_s = -s + np.tanh(force_s)
+            s = np.tanh(force_s)
+        else:
+            v_s = (-s + np.tanh(force_s)) / cap_args['tau_s']
 
-        v_kd = cap_args['c1'] * v_s + cap_args['c2'] * (s - cap_args['s0'])
+        # Capital demand velocity
+        if case is 'direct_feedback':
+            v_h = -h + np.tanh(news)
+            force_s = cap_args['beta1'] * s + cap_args['beta2'] * h
+            v_s = -s + np.tanh(force_s + gamma * gamma_mult_n * v_y)
+            v_kd = sum([
+                cap_args['c1'] * v_s,
+                cap_args['c2'] * (s - cap_args['s0'])
+            ])
+        else:
+            v_kd = cap_args['c1'] * v_s + cap_args['c2'] * (s - cap_args['s0'])
 
-        return [v_y, v_ks, v_kd, v_s, v_h, v_g_s]
+        return [v_y, v_ks, v_kd, v_s, v_h, v_g_s, v_saving]
 
-    def recession_timing(self, gdp: pd.Series = None, timescale: float = 63):
+    def long_term_growth(self, y_args: dict, cap_args: dict,
+                         gamma: float) -> list:
+
+        temp = cap_args['beta2'] * cap_args['c2'] * gamma
+
+        # Long-term rates
+        psi_y = y_args['e'] / (1 - 0.75 * y_args['rho'] * temp)
+        psi_ks = psi_y
+        psi_kd = (temp * y_args['e']) / (1 - 0.75 * y_args['rho'] * temp)
+        return [psi_y, psi_ks, psi_kd]
+
+    def recession_timing(self, gdp: pd.Series = None,
+                         timescale: float = 63) -> pd.DataFrame:
         """ Calculate the start and end of recessions on the basis of gdp growth.
         Two consecutive periods of length t that have negative growth start a
         recession. Two with positive growth end it.
@@ -312,7 +365,10 @@ class SolowModel(object):
         recessions = [growth.index[i] for i in recessions]
 
         # Generate start end tuples, first is given (assume we start in exp.)
-        se = [(0, min(recessions))]
+        try:
+            se = [(0, min(recessions))]
+        except ValueError:
+            return pd.DataFrame(columns=['expansion', 'recession'])
 
         i = 0
         while i < len(expansions):
@@ -461,59 +517,42 @@ class SolowModel(object):
 
     def visualise(self, save: str = '', case: str = 'general'):
         """ Generate a plot to visualise the outputs"""
-        df = self.vars.copy(deep=True)
-        df.loc[:, 'kd'] = np.exp(df.loc[:, 'kd'])
-        g_ix = df.loc[:, 'y'].pct_change() < 0
-        s, e = self._recessionSE(g_ix)
+        df = self.path.copy(deep=True)
+        rec = self.recession_timing(df.y)
+        rec = pd.DataFrame(np.zeros((2, 2)))
 
-        if case == 'general':
-            fig, ax_lst = plt.subplots(4, 2)
+        def rec_plot(ax, rec):
+            for j in range(rec.shape[0] - 1):
+                ax.axvspan(xmin=rec.iloc[j, 1], xmax=rec.iloc[j + 1, 0],
+                           color='gainsboro')
+
+        if case in ['general', 'limit_kd']:
+            fig, ax_lst = plt.subplots(2, 2)
             fig.set_size_inches(15, 10)
-            k = df.loc[:, ['kd', 'ks']].min(axis=1)
+            rec = self.recession_timing(df.y)
 
             # Production and growth
             ax_lst[0, 0].plot(df.loc[:, 'y'])
             ax_lst[0, 0].set_title('Production')
-            for j in zip(s, e):
-                ax_lst[0, 0].axvspan(xmin=j[0], xmax=j[1], color='gainsboro')
+            rec_plot(ax_lst[0, 0], rec)
             ax_lst[0, 1].plot(df.loc[:, 'y'].pct_change())
             ax_lst[0, 1].set_title('Production Growth Rates')
-            for j in zip(s, e):
-                ax_lst[0, 1].axvspan(xmin=j[0], xmax=j[1], color='gainsboro')
+            rec_plot(ax_lst[0, 1], rec)
 
             # Capital Markets
             ax_lst[1, 0].plot(df.kd, label='Demand')
-            ax_lst[1, 0].plot(df.ks, label='Supply')
+            ax_lst[1, 0].set_title('Capital Markets')
+            if case != 'limit_kd':
+                ax_lst[1, 0].plot(df.ks, label='Supply')
             ax_lst[1, 0].legend()
-            ax_lst[1, 0].set_title('Capital Supply and Demand')
-            for j in zip(s, e):
-                ax_lst[1, 0].axvspan(xmin=j[0], xmax=j[1], color='gainsboro')
-
-            ax_lst[1, 1].plot(k)
-            ax_lst[1, 1].set_title('Capital Applied to Production')
-
-            # Variables of interest
-            ax_lst[2, 0].plot(df.loc[:, 'r'])
-            ax_lst[2, 0].set_title('Capital Earnings Rate from Production')
-            ax_lst[2, 0].axhline(self.cm.depreciation)
-            for j in zip(s, e):
-                ax_lst[2, 0].axvspan(xmin=j[0], xmax=j[1], color='gainsboro')
-
-            ax_lst[2, 1].plot(self.eff_interest(df.ks, k, df.r))
-            ax_lst[2, 1].set_title('Effective Earnings')
-            ax_lst[2, 1].axhline(0)
-            for j in zip(s, e):
-                ax_lst[2, 1].axvspan(xmin=j[0], xmax=j[1], color='gainsboro')
+            rec_plot(ax_lst[1, 0], rec)
 
             # Capital Demand Dynamics
-            ax_lst[3, 0].plot(df.loc[:, 's'])
-            ax_lst[3, 0].set_title('Sentiment')
-            for j in zip(s, e):
-                ax_lst[3, 0].axvspan(xmin=j[0], xmax=j[1], color='gainsboro')
-            ax_lst[3, 1].plot(df.loc[:, 'h'])
-            ax_lst[3, 1].set_title('Information')
+            ax_lst[1, 1].plot(df.s)
+            ax_lst[1, 1].set_title('Sentiment')
+            rec_plot(ax_lst[1, 1], rec)
 
-        elif case == 'ks':
+        elif case == 'limit_ks':
             fig, ax_lst = plt.subplots(3, 1)
             fig.set_size_inches(15, 10)
 
@@ -526,30 +565,6 @@ class SolowModel(object):
             # Capital Markets
             ax_lst[2].plot(df.ks, label='Supply')
             ax_lst[2].set_title('Capital Supply')
-
-        elif case == 'kd':
-            fig, ax_lst = plt.subplots(5, 1)
-            fig.set_size_inches(15, 10)
-
-            # Production and growth
-            ax_lst[0].plot(df.loc[:, 'y'])
-            ax_lst[0].set_title('Production')
-            for j in zip(s, e):
-                ax_lst[0].axvspan(xmin=j[0], xmax=j[1], color='gainsboro')
-            ax_lst[1].plot(df.loc[:, 'y'].pct_change())
-            ax_lst[1].set_title('Production Growth Rates')
-            for j in zip(s, e):
-                ax_lst[1].axvspan(xmin=j[0], xmax=j[1], color='gainsboro')
-
-            # Capital Markets
-            ax_lst[2].plot(df.kd, label='Demand')
-            ax_lst[2].set_title('Capital Demand')
-
-            # Capital Demand Dynamics
-            ax_lst[3].plot(df.loc[:, 's'])
-            ax_lst[3].set_title('Sentiment')
-            ax_lst[4].plot(df.loc[:, 'h'])
-            ax_lst[4].set_title('Information')
 
         elif case == 'overview':
             fig, ax_lst = plt.subplots(4, 1)
