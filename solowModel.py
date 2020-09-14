@@ -42,7 +42,7 @@ class SolowModel(object):
 
     def solve(self, start: np.ndarray, t_end: float = 1e5,
               case: str = 'general', seed: int = 40,
-              save: bool = False) -> pd.DataFrame:
+              save: bool = False, folder: str = 'pickles/') -> pd.DataFrame:
         """
 
         Parameters
@@ -52,6 +52,7 @@ class SolowModel(object):
         case    :   str
         seed    :   int
         save    :   bool
+        folder  :   str
 
         Returns
         -------
@@ -84,7 +85,7 @@ class SolowModel(object):
         df = pd.DataFrame(path.y.T, columns=cols)
 
         if save:
-            file = open(self._name_gen(case, 'df'), 'wb')
+            file = open(self._name_gen(case, 'df', folder=folder), 'wb')
             pickle.dump(df, file)
             file.close()
 
@@ -259,7 +260,8 @@ class SolowModel(object):
         self.sbars = [max(intersects), min(intersects)]
         return [max(intersects), min(intersects)]
 
-    def _name_gen(self, case: str, kind: str = 'df') -> str:
+    def _name_gen(self, case: str, kind: str = 'df',
+                  folder: str = 'pickles/') -> str:
         """ Generate the file name for a given set of parameters
 
         Parameters
@@ -290,5 +292,5 @@ class SolowModel(object):
         ]
 
         name = '_'.join(parts)
-        name = 'pickles/' + name + '.' + kind
+        name = folder + name + '.' + kind
         return name
