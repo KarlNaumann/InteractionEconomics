@@ -279,15 +279,15 @@ class SolowModel(object):
         parts = [
             case,
             't{:.0e}'.format(self.t_end),
-            'g{:.1e}'.format(p['gamma']),
+            'g{:.0f}'.format(p['gamma']),
             'e{:.1e}'.format(p['epsilon']),
             'c1_{:.1e}'.format(p['c1']),
             'c2_{:.1e}'.format(p['c2']),
             'b1_{:.1f}'.format(p['beta1']),
             'b2_{:.1f}'.format(p['beta2']),
-            'ty{:.1e}'.format(p['tau_y']),
-            'ts{:.1e}'.format(p['tau_s']),
-            'th{:.1e}'.format(p['tau_h']),
+            'ty{:.0f}'.format(p['tau_y']),
+            'ts{:.0f}'.format(p['tau_s']),
+            'th{:.0f}'.format(p['tau_h']),
             'lam{:.2f}'.format(p['saving0'])
         ]
 
