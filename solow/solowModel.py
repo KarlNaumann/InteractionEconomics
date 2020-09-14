@@ -241,25 +241,21 @@ class SolowModel(object):
         cond    :   dict
         """
         p = self.params
-        rates = self.asymptotic_growth(case)
 
-        # Function for the solutions to long-term s
-        f = lambda x: np.arctanh(x) - p['beta1'] * x
-        tgt = p['beta2'] * p['gamma'] * rates[0]
+        def intersect_kd(s):
+            temp1 = p['beta2']*p['gamma']*p['rho']*p['c2']*s
+            temp2 = p['beta2']*p['gamma']*p['epsilon']
+            return np.abs(np.arctanh(s) - p['beta1']*s - temp1 - temp2)
 
-        if bound:
-            # Determine the boundary that the target should be below
-            temp = minimize(lambda x: -1 * f(x), x0=np.array([-0.5]),
-                            bounds=((-0.99, 0),), tol=1e-15)
-            return f(temp.x[0]), tgt
-        else:
-            # Determine intersections and thus long-term averages
-            intersects = []
-            for x0 in np.linspace(-.999, 0.999, 11):
-                s = minimize(lambda x: np.sqrt((f(x) - tgt) ** 2), x0=x0,
-                             bounds=((-0.99, 0.99),), tol=1e-15)
-                intersects.extend([s.x[0]])
-            return [max(intersects), min(intersects)]
+        intersects = []
+        # Search through four quadrants
+        quads = [(-0.99, -0.5), (-0.5, 0), (0, 0.5), (0.5, 0.99)]
+        for bnds in quads:
+            temp = minimize(intersect_kd, 0.5 * sum(bnds), bounds=(bnds,),
+                            tol=1e-15)
+            intersects.append(temp.x[0])
+        return [max(intersects), min(intersects)]
+
 
     def _name_gen(self, case: str, kind: str = 'df') -> str:
         """ Generate the file name for a given set of parameters
@@ -279,7 +275,7 @@ class SolowModel(object):
         parts = [
             case,
             't{:.0e}'.format(self.t_end),
-            'g{:d}'.format(p['gamma']),
+            'g{:.1e}'.format(p['gamma']),
             'e{:.1e}'.format(p['epsilon']),
             'c1_{:.1e}'.format(p['c1']),
             'c2_{:.1e}'.format(p['c2']),
