@@ -86,7 +86,10 @@ class SolowModel(object):
         df = pd.DataFrame(path.y.T, columns=cols)
 
         if save:
-            df.to_csv(self._name_gen(case, 'csv', folder=folder))
+            name = self._name_gen(case, 'csv', folder=folder)
+            df.to_hdf(name + '.hdf5.bzip2', key='df', complib='bzip2',
+                      complevel=9)
+            # df.to_csv(name+'.gzip', compression='gzip')
 
         self.path = df
 
