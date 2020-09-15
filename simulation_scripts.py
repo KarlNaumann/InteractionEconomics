@@ -73,6 +73,7 @@ def directory_dataframe(save_loc: str = 'pickles/'):
 
 
 if __name__ == '__main__':
+    print("Launching Simulations")
     params = {
         'tech0': np.exp(1), 'rho': 1 / 3, 'epsilon': 1e-5, 'tau_y': 1000,
         'dep': 0.0002,
