@@ -71,6 +71,7 @@ class SolowModel(object):
 
         # Arguments for the IVP solver
         np.random.seed(seed)
+        self.seed = seed
         t_eval = np.arange(1, int(t_end) - 1)
         self.t_end = t_end
         ou = OrnsteinUhlenbeck(**self.xi_args)
@@ -85,9 +86,7 @@ class SolowModel(object):
         df = pd.DataFrame(path.y.T, columns=cols)
 
         if save:
-            file = open(self._name_gen(case, 'df', folder=folder), 'wb')
-            pickle.dump(df, file)
-            file.close()
+            df.to_csv(self._name_gen(case, 'csv', folder=folder))
 
         self.path = df
 
@@ -219,16 +218,40 @@ class SolowModel(object):
 
         return res
 
-    def save_model(self):
+    def save_model(self, folder):
         """ Save the model and return the location
 
         Returns
         -------
         path    :   str
         """
-        file = open(self._name_gen(case='MODEL', kind='obj'), 'wb')
+        file = open(self._name_gen(case='MODEL', kind='obj', folder=folder),
+                    'wb')
         pickle.dump(self, file)
         file.close()
+
+    def load_path(self, csv_filename):
+        """ Load a Solow Model from a csv file that contains the integrated path
+
+        Parameters
+        ----------
+        csv_filename    :   str
+
+        Returns
+        -------
+        """
+
+        self.path = pd.read_csv(csv_filename)
+
+        temp = csv_filename.split('_')
+        self.t_end = float(temp[1][1:])
+        self.params = dict(gamma=float(temp[2][1:]), epsilon=float(temp[3][1:]),
+                           c1=float(temp[5]), c2=float(temp[7]),
+                           beta1=float(temp[9]), beta2=float(temp[11]),
+                           tau_s=int(temp[12][2:]), tau_y=int(temp[13][2:]),
+                           tau_h=int(temp[14][2:]), saving0=float(temp[15][3:]),
+                           tech0=float(temp[16][3:]), dep=float(temp[17][4:]),
+                           rho=float(temp[18][3:]), s0=0, h_h=10)
 
     def _sentiment_average(self, case: str, bound: bool = False):
         """ Determine the values of any conditions that might arise in the
@@ -278,17 +301,21 @@ class SolowModel(object):
 
         parts = [
             case,
-            't{:.0e}'.format(self.t_end),
-            'g{:.0f}'.format(p['gamma']),
-            'e{:.1e}'.format(p['epsilon']),
-            'c1_{:.1e}'.format(p['c1']),
-            'c2_{:.1e}'.format(p['c2']),
-            'b1_{:.1f}'.format(p['beta1']),
-            'b2_{:.1f}'.format(p['beta2']),
-            'ty{:.0f}'.format(p['tau_y']),
-            'ts{:.0f}'.format(p['tau_s']),
-            'th{:.0f}'.format(p['tau_h']),
-            'lam{:.2f}'.format(p['saving0'])
+            't{:07.0e}'.format(self.t_end),
+            'g{:07.0f}'.format(p['gamma']),
+            'e{:07.1e}'.format(p['epsilon']),
+            'c1_{:03.1f}'.format(p['c1']),
+            'c2_{:07.1e}'.format(p['c2']),
+            'b1_{:03.1f}'.format(p['beta1']),
+            'b2_{:03.1f}'.format(p['beta2']),
+            'ty{:03.0f}'.format(p['tau_y']),
+            'ts{:03.0f}'.format(p['tau_s']),
+            'th{:02.0f}'.format(p['tau_h']),
+            'lam{:01.2f}'.format(p['saving0']),
+            'dep{:07.1e}'.format(p['dep']),
+            'tech{:04.2f}'.format(p['tech0']),
+            'rho{:04.2f}'.format(p['rho']),
+            'seed{:02.0f}'.format(self.seed)
         ]
 
         name = '_'.join(parts)
