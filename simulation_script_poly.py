@@ -50,7 +50,7 @@ def sim_models(parameters: dict, initial_values: np.ndarray,
                         folder='test/')
         if verbose:
             temp = [seed, i, len(seeds),
-                    time.strftime("%H:%M:%S", time.gmtime(time.time()-t))]
+                    time.strftime("%H:%M:%S", time.gmtime(time.time() - t))]
             print("Seed {:3} ({}/{})\t Time: {}".format(*temp))
 
 
@@ -89,20 +89,13 @@ if __name__ == '__main__':
     # Accurate production adjustment
     start[0] = params['epsilon'] + params['rho'] * min(start[1:3])
 
-    params['c2'] = 3.1e-4
-    params['gamma'] = 2000
-    sim_models(params, start, seeds=[1],
-               save_loc='test/', verbose=True)
-
-    """
     gamma_list = [1e3, 2e3, 3e3]
     c2_list = [2e-4, 3e-4, 4e-4]
-    seeds = list(range(20))
+    seeds = list(range(40, 50))
 
     for gamma in gamma_list:
         for c2 in c2_list:
             params['c2'] = c2
             params['gamma'] = gamma
-            sim_models(params, start, seeds=seeds,
-                       save_loc='simulations/', verbose=True)
-    """
+            sim_models(params, start, seeds=seeds, save_loc='multi/',
+                       verbose=True)
