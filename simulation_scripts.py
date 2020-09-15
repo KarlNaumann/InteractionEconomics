@@ -34,7 +34,7 @@ def sim_models(parameters: dict, initial_values: np.ndarray,
 
     """
 
-    t = time.now()
+
 
     if seeds is None:
         seeds = list(range(20))
@@ -47,7 +47,7 @@ def sim_models(parameters: dict, initial_values: np.ndarray,
     for i, seed in enumerate(seeds):
         t = time.time()
         path = sm.solve(initial_values, t_end, seed=seed, case=case, save=True,
-                        folder='test/')
+                folder=save_loc)
         if verbose:
             temp = [seed, i, len(seeds),
                     time.strftime("%H:%M:%S", time.gmtime(time.time()-t))]
@@ -78,6 +78,7 @@ def directory_dataframe(save_loc: str = 'pickles/'):
 
 
 if __name__ == '__main__':
+    print("Starting Simulations")
     params = {
         'tech0': np.exp(1), 'rho': 1 / 3, 'epsilon': 1e-5, 'tau_y': 1000,
         'dep': 0.0002,
@@ -91,7 +92,7 @@ if __name__ == '__main__':
 
     params['c2'] = 3.1e-4
     params['gamma'] = 2000
-    sim_models(params, start, seeds=list(range(1, 20)),
+    sim_models(params, start, t_end=1e6, seeds=list(range(1, 20)),
                save_loc='simulations/', verbose=True)
 
 
@@ -105,3 +106,4 @@ if __name__ == '__main__':
             params['gamma'] = gamma
             sim_models(params, start, seeds=seeds,
                        save_loc='simulations/', verbose=True)
+    
