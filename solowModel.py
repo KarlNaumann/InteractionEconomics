@@ -7,8 +7,7 @@ from matplotlib import rc
 from scipy.integrate import solve_ivp
 from scipy.optimize import minimize
 
-import solow_cases
-from ornstein_uhlenbeck import OrnsteinUhlenbeck
+from solow_cases import *
 
 rc('font', **{'family': 'sans-serif', 'sans-serif': ['Helvetica'], 'size': 16})
 plt.rc('font', size=12)  # controls default text sizes
@@ -33,6 +32,7 @@ class SolowModel(object):
         self.path = None
         self.sbars = None
         self.t_end = 0
+        self.seed = 0
 
         arg_order = [
             "tech0", "rho", "epsilon", "tau_y", "tau_s", "tau_h", "dep",
@@ -42,7 +42,8 @@ class SolowModel(object):
 
     def solve(self, start: np.ndarray, t_end: float = 1e5,
               case: str = 'general', seed: int = 40,
-              save: bool = False, folder: str = 'pickles/') -> pd.DataFrame:
+              save: bool = False, folder: str = 'pickles/',
+              method: str = 'RK45') -> pd.DataFrame:
         """
 
         Parameters
@@ -60,13 +61,13 @@ class SolowModel(object):
 
         """
         f = {
-            "general": solow_cases.general,
-            "direct_feedback": solow_cases.direct_feedback,
-            "sentiment_feedback": solow_cases.sentiment_feedback,
-            "limit_kd": solow_cases.limit_kd,
-            "limit_ks": solow_cases.limit_ks,
-            "unbounded_information": solow_cases.unbounded_information,
-            "general_no_patch": solow_cases.general_no_patch,
+            "general": general,
+            "direct_feedback": direct_feedback,
+            "sentiment_feedback": sentiment_feedback,
+            "limit_kd": limit_kd,
+            "limit_ks": limit_ks,
+            "unbounded_information": unbounded_information,
+            "general_no_patch": general_no_patch,
         }[case]
 
         # Arguments for the IVP solver
@@ -78,22 +79,19 @@ class SolowModel(object):
         args = self.args + [ou]
 
         # Generate path of variables
-        path = solve_ivp(f, t_span=(1, t_end), y0=start, method='RK45',
-                         t_eval=t_eval, args=args, atol=1e-5)
+        path = solve_ivp(f, t_span=(1, t_end), y0=start, method=method,
+                         t_eval=t_eval, args=args, atol=1e-6, rtol=1e-2,
+                         first_step=0.1)
         print(path.message)
 
+        #plt.hist(ou.history, bins=50)
+        #plt.show()
+
         cols = ['y', 'ks', 'kd', 's', 'h', 'g', 'saving']
-        df = pd.DataFrame(path.y.T, columns=cols)
 
-        if save:
-            name = self._name_gen(case, 'csv', folder=folder)
-            df.to_hdf(name + '.hdf5.bzip2', key='df', complib='bzip2',
-                      complevel=9)
-            # df.to_csv(name+'.gzip', compression='gzip')
+        self.path = pd.DataFrame(path.y.T, columns=cols)
 
-        self.path = df
-
-        return df
+        return self.path
 
     def asymptotic_growth(self, case: str = 'general') -> list:
         """ Calculate the asymptotic growth rates given a specific case
@@ -221,6 +219,14 @@ class SolowModel(object):
 
         return res
 
+    def save_path(self, folder: str, case: str = 'general', kind: str = 'hdf5'):
+
+        assert self.path is not None, "Please run integration first"
+
+        name = self._name_gen(case, 'csv', folder=folder)
+        self.path.to_hdf(name + '.hdf5.bzip2', key='df', complib='bzip2',
+                  complevel=9)
+
     def save_model(self, folder):
         """ Save the model and return the location
 
@@ -304,8 +310,8 @@ class SolowModel(object):
 
         parts = [
             case,
-            't{:07.0e}'.format(self.t_end),
-            'g{:07.0f}'.format(p['gamma']),
+            't{:05.0e}'.format(self.t_end),
+            'g{:05.0f}'.format(p['gamma']),
             'e{:07.1e}'.format(p['epsilon']),
             'c1_{:03.1f}'.format(p['c1']),
             'c2_{:07.1e}'.format(p['c2']),
