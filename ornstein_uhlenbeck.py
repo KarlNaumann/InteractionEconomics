@@ -2,8 +2,7 @@ import numpy as np
 
 
 class OrnsteinUhlenbeck(object):
-    def __init__(self, decay: float, diffusion: float, drift: float=0,
-                 t0: float = 0):
+    def __init__(self, decay: float, diffusion: float, t0: float = 0):
         """ Class implementing the Ornstein-Uhlenbeck process
 
             dxt = decay * (drift - xt) * dt + diffusion * dWt
@@ -36,13 +35,12 @@ class OrnsteinUhlenbeck(object):
         """
 
         self.decay = decay
-        self.drift = drift
         self.diffusion = diffusion
 
-        self.history = [self.drift]
+        self.history = [0]
         self.points = [t0]
 
-    def euler_maruyama(self, t: float, rand: float = None):
+    def euler_maruyama(self, t: float):
         """ Numerical approximation of the Ornstein-Uhlenbeck process by means
         of the Euler-Maruyama scheme:
         xt+1 = xt + b(xt)*delta_t + diff*sqrt(delta_t)*norm_rand
@@ -59,9 +57,6 @@ class OrnsteinUhlenbeck(object):
         x   :   float
             next realisation of the Ornstein-Uhlenbeck process
         """
-        # Generate a N(0,1) random variable if not provided yet
-        rand = rand if rand is not None else np.random.normal(0, 1)
-
         # ODE algo may be adaptive and go backwards in between -> find the
         # closest timestep that is smaller
         i = 1
@@ -70,14 +65,12 @@ class OrnsteinUhlenbeck(object):
             if i > len(self.points):
                 i = len(self.points)
                 break
+
         # Determine the interval
         delta = t - self.points[-i]
         self.points.append(t)
 
-        # Next realisation as function of prior realisation
-        prior = self.history[-i]
-        b_xt = self.decay * (self.drift - prior)
-        x_next = prior + delta * b_xt + (self.diffusion * np.sqrt(delta) * rand)
-        self.history.append(x_next)
-
-        return x_next
+        const = (1 - delta * self.decay) * self.history[-1]
+        xi_next = const + self.diffusion * np.random.normal(0, np.sqrt(delta))
+        self.history.append(xi_next)
+        return xi_next
