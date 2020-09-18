@@ -47,15 +47,16 @@ seeds = list(range(100))
 cols = ['psi_y', 'psi_ks', 'psi_kd', 'g', 'sbar_hat', 'sbar_theory',
         'sbar_crit']
 
-for gamma in gamma_list:
+for g, gamma in enumerate(gamma_list):
+    print('## Gamma = {} ({}/{})'.format(gamma, g, len(gamma_list))
     sm.params['gamma'] = gamma
-    for c2 in c2_list:
+    for c, c2 in enumerate(c2_list):
+        print('## C2 = {} ({}/{})'.format(c2, c, len(c2_list))
         sm.params['c2'] = c2
         df = pd.DataFrame(index=seeds, columns=cols)
         for i, seed in enumerate(seeds):
             sm.simulate(start, t_end=t_end, seed=seed)
             df.loc[seed, :] = sm.asymptotics()
-            print(i / len(seeds))
 
         file = open(name_gen(params, t_end), 'wb')
         pickle.dump(df, file)
