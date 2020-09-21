@@ -33,6 +33,7 @@ def name_gen(p, t_end, folder: str = 'test/') -> str:
 
 def sim_worker(args):
     sm.params['gamma'], sm.params['c2'], seeds, t_end = args
+    print("Sim: gamma={}, c2={}".format(args[0],args[1]))
     df = pd.DataFrame(index=seeds,
                       columns=['psi_y', 'psi_ks', 'psi_kd', 'g', 'sbar_hat',
                                'sbar_theory', 'sbar_crit'])
@@ -68,9 +69,15 @@ if __name__ == '__main__':
         for c2 in c2_list:
             work_log.append((gamma, c2, seed_list, duration))
 
-    time_now = time.strftime("%H:%M:%S", time.gmtime(time.time()))
+    t = time.time()
+    time_now = time.strftime("%H:%M:%S", time.gmtime(t))
     print("Starting {} processes on {} CPUs at {}".format(len(work_log),
                                                           cpu_count(), time_now))
 
     p = Pool(processes=cpu_count())
     p.map(sim_worker, tuple(work_log))
+
+    time_tot = time.strftime("%H:%M:%S", time.gmtime(time.time()-t))
+    print("Completed {} processes on {} CPUs in {}".format(len(work_log),
+                                                          cpu_count(),
+                                                          time_now))
