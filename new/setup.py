@@ -1,6 +1,6 @@
-""" Cython setup and compilation file """
+""" Cython setup and compilation file"""
 from setuptools import setup
-import numpy as np
+import numpy
 
 try:
     from Cython.Build import cythonize
@@ -12,5 +12,6 @@ except ImportError:
 
 ext_options = {"compiler_directives": {"profile": True}, "annotate": True}
 setup(
-    ext_modules = cythonize('step_functions.pyx', **ext_options)
+    ext_modules = cythonize('step_functions.pyx', **ext_options),
+    include_dirs=[numpy.get_include()]
 )

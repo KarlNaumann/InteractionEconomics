@@ -74,6 +74,7 @@ def directory_dataframe(save_loc: str = 'pickles/'):
 
 
 if __name__ == '__main__':
+    print("Starting Simulation")
     params = {
         'tech0': np.exp(1), 'rho': 1 / 3, 'epsilon': 1e-5, 'tau_y': 1000,
         'dep': 0.0002,
@@ -86,18 +87,21 @@ if __name__ == '__main__':
     start[0] = params['epsilon'] + params['rho'] * min(start[1:3])
 
     seeds = list(range(20, 40))
-    gamma_list = [1e3, 2e3, 3e3]
-    c2_list = [2e-4, 3e-4, 4e-4]
-    processes = []
-    for gamma in gamma_list:
-        for c2 in c2_list:
-            for seed in seeds:
+    for i,seed in enumerate(seeds):
+        print("Seed {} ({}/{})".format(seed, i, len(seeds)))
+        gamma_list = [1e3, 2e3, 3e3]
+        c2_list = [2e-4, 3e-4, 4e-4]
+        for gamma in gamma_list:
+            processes = []
+            params['gamma']=gamma
+            for c2 in c2_list:
+                params['c2']=c2
                 args = (
-                    params, start, None, 1e3, [seed], 'general', 'test/', True
+                    params, start, None, 1e6, [seed], 'general', 'multi/', True
                 )
                 proc = Process(target=sim_models, args=args)
                 processes.append(proc)
                 proc.start()
 
-    for proc in processes:
-        proc.join()
+            for proc in processes:
+                proc.join()
