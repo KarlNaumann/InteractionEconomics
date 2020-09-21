@@ -40,8 +40,8 @@ t_end = 1e7
 sm = SolowModel(params, xi_args)
 
 # Parameters to investigate
-gamma_list = [1000, 1500, 2000, 2500, 3000]
-c2_list = np.linspace(1e-4, 4e-4, 11)
+gamma_list = np.arange(1000, 4100, 100)  # [1000, 1500, 2000, 2500, 3000]
+c2_list = np.arange(1e-4, 5e-4, 2e-5)  # np.linspace(1e-4, 4e-4, 11)
 seeds = list(range(100))
 
 cols = ['psi_y', 'psi_ks', 'psi_kd', 'g', 'sbar_hat', 'sbar_theory',
@@ -62,3 +62,6 @@ for g, gamma in enumerate(gamma_list):
         pickle.dump(df, file)
         file.close()
         print("Done")
+
+# 5 * 11 * 100  = 5500
+# 30 * 20 * 100 = 60000
