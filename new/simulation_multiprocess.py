@@ -1,3 +1,4 @@
+import os
 import pickle
 import time
 from multiprocessing import Pool, cpu_count
@@ -29,6 +30,17 @@ def name_gen(p, t_end, folder: str = 'test/') -> str:
     name = '_'.join(parts)
     name = folder + name + '.df'
     return name
+
+def extract_g_c2(filename):
+    parts = filename.split('_')
+    # locate g
+    for i,part in enumerate(parts):
+        if part[0] == 'g':
+            gamma = int(part[1:])
+        if part == 'c2':
+            c2 = float(parts[i+1])
+
+    return (gamma, c2)
 
 
 def sim_worker(args):
@@ -64,10 +76,19 @@ if __name__ == '__main__':
     c2_list = np.arange(1e-4, 5e-4, 2e-5)  # np.linspace(1e-4, 4e-4, 11)
     seed_list = list(range(100))
 
+    # Completed sets
+    files = [f for f in os.listdir() if 'general' in f]
+    done_pairs = [extract_g_c2(f) for f in files]
+
     work_log = []
     for gamma in gamma_list:
         for c2 in c2_list:
-            work_log.append((gamma, c2, seed_list, duration))
+            if (gamma, c2) not in done_pairs:
+                work_log.append((gamma, c2, seed_list, duration))
+            else:
+                print("Caught {} {}".format(gamma, c2))
+
+    print(len(work_log))
 
     t = time.time()
     time_now = time.strftime("%H:%M:%S", time.gmtime(t))
