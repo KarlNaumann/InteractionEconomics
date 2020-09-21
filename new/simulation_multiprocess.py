@@ -83,12 +83,8 @@ if __name__ == '__main__':
     work_log = []
     for gamma in gamma_list:
         for c2 in c2_list:
-            if (gamma, c2) not in done_pairs:
+            if (gamma, float("{:.6f}".format(c2))) not in done_pairs:
                 work_log.append((gamma, c2, seed_list, duration))
-            else:
-                print("Caught {} {}".format(gamma, c2))
-
-    print(len(work_log))
 
     t = time.time()
     time_now = time.strftime("%H:%M:%S", time.gmtime(t))
