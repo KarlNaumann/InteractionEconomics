@@ -41,7 +41,7 @@ def sim_worker(args):
         sm.simulate(start, t_end=t_end, seed=seed)
         df.loc[seed, :] = sm.asymptotics()
 
-    file = open(name_gen(params, t_end), 'wb')
+    file = open(name_gen(params, t_end, folder='asymptotic_simulations'), 'wb')
     pickle.dump(df, file)
     file.close()
 
