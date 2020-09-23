@@ -1,9 +1,7 @@
 import os
 import pickle
 import time
-from multiprocessing import set_start_method
-set_start_method("spawn")
-from multiprocessing import Pool, cpu_count
+from multiprocessing import Pool, cpu_count, get_context
 
 from numpy import arange, array
 from pandas import DataFrame
@@ -47,8 +45,9 @@ def extract_g_c2(filename):
 
 
 def worker(args):
-    sm.params['gamma'], sm.params['c2'], seeds, t_end = args
-    print("Sim: gamma={}, c2={}".format(args[0], args[1]))
+    sm = args[0]
+    sm.params['gamma'], sm.params['c2'], seeds, t_end, start = args[1:]
+    print("Sim: gamma={}, c2={}".format(args[1], args[2]))
     df = DataFrame(index=seeds,
                    columns=['psi_y', 'psi_ks', 'psi_kd', 'g', 'sbar_hat',
                             'sbar_theory', 'sbar_crit'])
@@ -59,6 +58,12 @@ def worker(args):
     file = open(name_gen(params, t_end, folder='asymptotics/'), 'wb')
     pickle.dump(df, file)
     file.close()
+
+def pool_mgmt(tasks):
+    with get_context("spawn").Pool() as pool:
+        pool.map(worker, tasks)
+        pool.close()
+        pool.join()
 
 
 if __name__ == '__main__':
@@ -91,7 +96,7 @@ if __name__ == '__main__':
     for gamma in gamma_list:
         for c2 in c2_list:
             if (gamma, float("{:.6f}".format(c2))) not in done_pairs:
-                tasks.append((gamma, c2, seed_list, duration))
+                tasks.append((sm, gamma, c2, seed_list, duration, start))
 
     # Verbose Info
     t = time.time()
@@ -99,10 +104,7 @@ if __name__ == '__main__':
     print("Starting {} processes on {} CPUs at {}".format(*arg))
 
     # Start simulations
-    p = Pool(processes=cpu_count())
-    p.map(worker, tuple(tasks))
-    p.close()
-    p.join()
+    pool_mgmt(tasks)
 
     # Verbose completion
     time_tot = time.strftime("%H:%M:%S", time.gmtime(time.time() - t))
