@@ -3,6 +3,7 @@ import pickle
 import numpy as np
 import pandas as pd
 from cython_base.step_functions import long_general
+from matplotlib import pyplot as plt
 
 
 class SolowModel(object):
@@ -84,6 +85,75 @@ class SolowModel(object):
         self.asymp_rates = [psi_y, psi_ks, psi_kd, g, sbar_hat, sbar_t, sbar_c]
         return self.asymp_rates
 
+    def visualise(self, asymp: bool = True, save: str = ''):
+
+        # Checks
+        assert self.path is not None, "Run simulation first"
+        if self.asymp_rates is None: self.asymptotics()
+        # Variables
+        df = self.path.loc[:, ['y', 'ks', 'kd', 's', 'g']]
+        t = df.index.values
+        psi = self.asymp_rates[:3]
+        sbar = None  # TODO: Implement the solutions to the equilibria?
+        # Figure setup
+        fig, ax = plt.subplots(2, 2)
+        fig.set_size_inches(8, 8)
+        # Line props
+        a_line = dict(linestyle='--', linewidth=0.75)
+        n_line = dict(linestyle='-', linewidth=1.0)
+        # 1 = Production
+        if asymp:
+            ax[0, 0].plot(t, t * psi[0] + df.y.iloc[0], label='Asymp. Growth',
+                          **a_line)
+        ax[0, 0].plot(df.y, label='Production', **n_line)
+        ax[0, 0].set_title("Log Production (y)")
+        ax[0, 0].set_xlabel("Time")
+        ax[0, 0].set_ylabel("Log Production")
+        ax[0, 0].set_xlim(0, t[-1])
+        ax[0, 0].set_ylim(df.y.min(), df.y.max())
+        ax[0, 0].ticklabel_format(style='sci', axis='x', scilimits=(0, 0))
+        ax[0, 0].legend()
+        # 2 = Capital Markets
+        if asymp:
+            ax[0, 1].plot(t, t * psi[1] + df.ks.iloc[0], label='Asymp. Supply',
+                          **a_line)
+        ax[0, 1].plot(df.ks, label='Supply', **n_line)
+        if asymp:
+            ax[0, 1].plot(t, t * psi[2] + df.kd.iloc[0], label='Asymp. Demand',
+                          **a_line)
+        ax[0, 1].plot(df.kd, label='Demand', **n_line)
+        ax[0, 1].set_title("Capital Markets (ks, kd)")
+        ax[0, 1].set_xlabel("Time")
+        ax[0, 1].set_ylabel("Log Capital")
+        ax[0, 1].set_xlim(0, t[-1])
+        ax[0, 1].set_ylim(min(df.ks.min(), df.kd.min()),
+                          max(df.ks.max(), df.kd.max()))
+        ax[0, 1].ticklabel_format(style='sci', axis='x', scilimits=(0, 0))
+        ax[0, 1].legend()
+        # 3 = Sentiment
+        ax[1, 0].axhline(0, **a_line)
+        ax[1, 0].plot(df.s, label='Sentiment', **n_line)
+        ax[1, 0].set_title("Sentiment (s)")
+        ax[1, 0].set_xlabel("Time")
+        ax[1, 0].set_ylabel("Sentiment")
+        ax[1, 0].set_xlim(0, t[-1])
+        ax[1, 0].set_ylim(-1, 1)
+        ax[1, 0].ticklabel_format(style='sci', axis='x', scilimits=(0, 0))
+        ax[1, 0].legend()
+        # 4 = Gamma Multiplier
+        ax[1, 1].plot(df.g, label='Multiplier', **n_line)
+        ax[1, 1].set_title("Feedback Activation")
+        ax[1, 1].set_xlabel("Time")
+        ax[1, 1].set_ylabel("Multiplier")
+        ax[1, 1].set_xlim(0, t[-1])
+        #ax[1, 1].set_ylim(-0.1, 1.1)
+        ax[1, 1].ticklabel_format(style='sci', axis='x', scilimits=(0, 0))
+        ax[1, 1].legend()
+        # Final layout
+        # fig.suptitle('Summary of Integration', fontsize=16)
+        fig.tight_layout()
+        plt.show()
+
     def save(self, item: str = 'model', folder: str = 'computations'):
         """ Export the model, or an aspect of the model, to a folder as a
         pickle object
@@ -123,3 +193,4 @@ class SolowModel(object):
             'tech{:04.2f}'.format(p['tech0']), 'rho{:04.2f}'.format(p['rho']),
         ])
         return folder + name
+
