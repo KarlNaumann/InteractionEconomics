@@ -55,9 +55,10 @@ def worker(args):
         sm.simulate(start, t_end=t_end, seed=seed)
         df.loc[seed, :] = sm.asymptotics()
 
-    file = open(name_gen(params, t_end, folder='asymptotics/'), 'wb')
+    file = open(name_gen(sm.params, t_end, folder='asymptotics/'), 'wb')
     pickle.dump(df, file)
     file.close()
+
 
 def pool_mgmt(tasks):
     with get_context("spawn").Pool() as pool:
