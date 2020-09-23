@@ -1,9 +1,9 @@
 import os
 import pickle
 import time
-from multiprocessing import cpu_count, Pool
+from multiprocessing import Pool, cpu_count
 
-from numpy import array, arange
+from numpy import arange, array
 from pandas import DataFrame
 from solowModel_cython import SolowModel
 
@@ -48,8 +48,8 @@ def worker(args):
     sm.params['gamma'], sm.params['c2'], seeds, t_end = args
     print("Sim: gamma={}, c2={}".format(args[0], args[1]))
     df = DataFrame(index=seeds,
-                      columns=['psi_y', 'psi_ks', 'psi_kd', 'g', 'sbar_hat',
-                               'sbar_theory', 'sbar_crit'])
+                   columns=['psi_y', 'psi_ks', 'psi_kd', 'g', 'sbar_hat',
+                            'sbar_theory', 'sbar_crit'])
     for i, seed in enumerate(seeds):
         sm.simulate(start, t_end=t_end, seed=seed)
         df.loc[seed, :] = sm.asymptotics()
@@ -71,8 +71,8 @@ if __name__ == '__main__':
     start[0] = params['epsilon'] + params['rho'] * min(start[1:3])
 
     # Set up the varied parameters gamma and c2
-    gamma_list = arange(1000, 4100, 100)
-    c2_list = arange(1e-4, 5e-4, 2e-5)
+    gamma_list = arange(1000, 4000, 400)  # arange(1000, 4100, 100)
+    c2_list = arange(1e-4, 5e-4, 5e-5)  # arange(1e-4, 5e-4, 2e-5)
     seed_list = list(range(100))
 
     # Set up the Model and saves
