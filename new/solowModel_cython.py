@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 from cython_base.step_functions import long_general
 from matplotlib import pyplot as plt
+from scipy.optimize import minimize
 
 
 class SolowModel(object):
@@ -90,6 +91,7 @@ class SolowModel(object):
         # Checks
         assert self.path is not None, "Run simulation first"
         if self.asymp_rates is None: self.asymptotics()
+        if self.sbars is None: self._s_sol()
         # Variables
         df = self.path.loc[:, ['y', 'ks', 'kd', 's', 'g']]
         t = df.index.values
@@ -99,29 +101,28 @@ class SolowModel(object):
         fig, ax = plt.subplots(2, 2)
         fig.set_size_inches(8, 8)
         # Line props
-        a_line = dict(linestyle='--', linewidth=0.75)
+        a_line = dict(linestyle='--', linewidth=1.25)
         n_line = dict(linestyle='-', linewidth=1.0)
         # 1 = Production
         if asymp:
             ax[0, 0].plot(t, t * psi[0] + df.y.iloc[0], label='Asymp. Growth',
-                          **a_line)
-        ax[0, 0].plot(df.y, label='Production', **n_line)
+                          color='orange', **a_line)
+        ax[0, 0].plot(df.y, label='Production', color='royalblue', **n_line)
         ax[0, 0].set_title("Log Production (y)")
         ax[0, 0].set_xlabel("Time")
         ax[0, 0].set_ylabel("Log Production")
         ax[0, 0].set_xlim(0, t[-1])
         ax[0, 0].set_ylim(df.y.min(), df.y.max())
         ax[0, 0].ticklabel_format(style='sci', axis='x', scilimits=(0, 0))
-        ax[0, 0].legend()
+        ax[0, 0].legend(loc=2)
         # 2 = Capital Markets
         if asymp:
             ax[0, 1].plot(t, t * psi[1] + df.ks.iloc[0], label='Asymp. Supply',
-                          **a_line)
-        ax[0, 1].plot(df.ks, label='Supply', **n_line)
-        if asymp:
+                          color='orange', **a_line)
             ax[0, 1].plot(t, t * psi[2] + df.kd.iloc[0], label='Asymp. Demand',
-                          **a_line)
-        ax[0, 1].plot(df.kd, label='Demand', **n_line)
+                          color='gold', **a_line)
+        ax[0, 1].plot(df.ks, label='Supply', color='royalblue', **n_line)
+        ax[0, 1].plot(df.kd, label='Demand', color='skyblue', **n_line)
         ax[0, 1].set_title("Capital Markets (ks, kd)")
         ax[0, 1].set_xlabel("Time")
         ax[0, 1].set_ylabel("Log Capital")
@@ -129,26 +130,29 @@ class SolowModel(object):
         ax[0, 1].set_ylim(min(df.ks.min(), df.kd.min()),
                           max(df.ks.max(), df.kd.max()))
         ax[0, 1].ticklabel_format(style='sci', axis='x', scilimits=(0, 0))
-        ax[0, 1].legend()
+        ax[0, 1].legend(loc=2)
         # 3 = Sentiment
         ax[1, 0].axhline(0, **a_line)
-        ax[1, 0].plot(df.s, label='Sentiment', **n_line)
+        if asymp:
+            ax[1, 0].axhline(self.sbars[0], color='orange', **a_line)
+            ax[1, 0].axhline(self.sbars[1], color='orange', **a_line)
+        ax[1, 0].plot(df.s, label='Sentiment', color='royalblue', **n_line)
         ax[1, 0].set_title("Sentiment (s)")
         ax[1, 0].set_xlabel("Time")
         ax[1, 0].set_ylabel("Sentiment")
         ax[1, 0].set_xlim(0, t[-1])
         ax[1, 0].set_ylim(-1, 1)
         ax[1, 0].ticklabel_format(style='sci', axis='x', scilimits=(0, 0))
-        ax[1, 0].legend()
+        ax[1, 0].legend(loc=3)
         # 4 = Gamma Multiplier
-        ax[1, 1].plot(df.g, label='Multiplier', **n_line)
+        ax[1, 1].plot(df.g, label='Multiplier',color='royalblue', **n_line)
         ax[1, 1].set_title("Feedback Activation")
         ax[1, 1].set_xlabel("Time")
         ax[1, 1].set_ylabel("Multiplier")
         ax[1, 1].set_xlim(0, t[-1])
-        #ax[1, 1].set_ylim(-0.1, 1.1)
+        # ax[1, 1].set_ylim(-0.1, 1.1)
         ax[1, 1].ticklabel_format(style='sci', axis='x', scilimits=(0, 0))
-        ax[1, 1].legend()
+        ax[1, 1].legend(loc=3)
         # Final layout
         # fig.suptitle('Summary of Integration', fontsize=16)
         fig.tight_layout()
@@ -194,3 +198,25 @@ class SolowModel(object):
         ])
         return folder + name
 
+    def _s_sol(self):
+        """ Add the solution to the sentiment equilibria on the basis of the
+        asymptotic growth rates
+
+        Returns
+        -------
+        sbars = []
+        """
+        # Check
+        if self.asymp_rates is None:
+            self.asymptotics()
+        # Solve
+        m = self.params['beta2'] * np.tanh(
+                self.params['gamma'] * self.asymp_rates[0])
+        y = lambda s: np.abs(np.arctanh(s) - self.params['beta1'] * s - m)
+        intersects = []
+        # Search through four quadrants
+        for bnds in [(-0.99, -0.5), (-0.5, 0), (0, 0.5), (0.5, 0.99)]:
+            temp = minimize(y, 0.5 * sum(bnds), bounds=(bnds,), tol=1e-15)
+            intersects.append(temp.x[0])
+        self.sbars = [max(intersects), min(intersects)]
+        return [max(intersects), min(intersects)]
