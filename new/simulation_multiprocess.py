@@ -73,7 +73,7 @@ if __name__ == '__main__':
     # Set up the varied parameters gamma and c2
     gamma_list = arange(1000, 4000, 400)  # arange(1000, 4100, 100)
     c2_list = arange(1e-4, 5e-4, 5e-5)  # arange(1e-4, 5e-4, 2e-5)
-    seed_list = list(range(100))
+    seed_list = list(range(10))
 
     # Set up the Model and saves
     duration = 1e7
