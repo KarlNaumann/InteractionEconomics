@@ -36,7 +36,7 @@ def extract_g_c2(filename):
     parts = filename.split('_')
     # locate g
     for i, part in enumerate(parts):
-        if part[0] == 'g':
+        if part[0] == 'g' and part[1]!='e':
             gamma = int(part[1:])
         if part == 'c2':
             c2 = float(parts[i + 1])
