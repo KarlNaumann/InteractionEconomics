@@ -1,7 +1,7 @@
+import pickle
+
 import numpy as np
 import pandas as pd
-
-# Cython solver import
 from cython_base.step_functions import long_general
 
 
@@ -83,3 +83,43 @@ class SolowModel(object):
         # Result
         self.asymp_rates = [psi_y, psi_ks, psi_kd, g, sbar_hat, sbar_t, sbar_c]
         return self.asymp_rates
+
+    def save(self, item: str = 'model', folder: str = 'computations'):
+        """ Export the model, or an aspect of the model, to a folder as a
+        pickle object
+
+        Parameters
+        ----------
+        item    :   str
+            currently supported "model" for object, and "path" for dataframe
+        folder  :   str
+        """
+        item = dict(model=[self, '.obj'], path=[self.path, '.df'])[item]
+        file = open(self._name(folder) + item[1], 'wb')
+        pickle.dump(item[0], file)
+        file.close()
+
+    def _name(self, folder: str = 'computations/') -> str:
+        """ Auto-generate a filename for the model based on its parameters
+
+        Parameters
+        ----------
+        folder  :str
+
+        Returns
+        -------
+        name    :str
+        """
+        p = self.params
+        name = '_'.join([
+            'general', 't{:05.0e}'.format(self.t_end),
+            'g{:05.0f}'.format(p['gamma']),
+            'e{:07.1e}'.format(p['epsilon']),
+            'c1_{:03.1f}'.format(p['c1']), 'c2_{:07.1e}'.format(p['c2']),
+            'b1_{:03.1f}'.format(p['beta1']), 'b2_{:03.1f}'.format(p['beta2']),
+            'ty{:03.0f}'.format(p['tau_y']), 'ts{:03.0f}'.format(p['tau_s']),
+            'th{:02.0f}'.format(p['tau_h']),
+            'lam{:01.2f}'.format(p['saving0']), 'dep{:07.1e}'.format(p['dep']),
+            'tech{:04.2f}'.format(p['tech0']), 'rho{:04.2f}'.format(p['rho']),
+        ])
+        return folder + name
