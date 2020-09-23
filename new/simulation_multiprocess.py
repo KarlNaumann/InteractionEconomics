@@ -1,6 +1,8 @@
 import os
 import pickle
 import time
+from multiprocessing import set_start_method
+set_start_method("spawn")
 from multiprocessing import Pool, cpu_count
 
 from numpy import arange, array
