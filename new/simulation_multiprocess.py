@@ -99,6 +99,8 @@ if __name__ == '__main__':
     # Start simulations
     p = Pool(processes=cpu_count())
     p.map(worker, tuple(tasks))
+    p.close()
+    p.join()
 
     # Verbose completion
     time_tot = time.strftime("%H:%M:%S", time.gmtime(time.time() - t))
