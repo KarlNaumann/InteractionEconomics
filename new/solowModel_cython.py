@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 
 # Cython solver import
-from step_functions import full_general
+from cython_base.step_functions import full_general, long_general
 
 
 class SolowModel(object):
@@ -21,45 +21,30 @@ class SolowModel(object):
         self.seed = 0
         self.asymptotic_rates = None
 
-    def simulate(self, initial_values: np.ndarray, t_end: float = 1e6,
-                 interval: float = 0.1, seed: int = 42) -> pd.DataFrame:
-        """ Use a Cython compiled step-iterator to solve along the path
-
-        Parameters
-        ----------
-        initial_values  :   np.ndarray
-            array of initial values, order: [y, ks, kd, s, h, g, news]
-        t_end   :   float
-            Duration of the simulation in business days
-        interval    :   float
-            Interval of simulation, fraction of a day
-        seed    :   int
-            random seed for numpy
-
-        Returns
-        -------
-        path    :   pd.DataFrane
-            path of SDE, same order as initial_values
-        """
+    def simulate(self, initial_values: np.ndarray, t_end: float,
+                 interval: float = 0.1, seed:int=40) -> pd.DataFrame:
 
         self.seed = seed
         self.t_end = t_end
 
         # News process
         np.random.seed(seed)
-        t_count = int(t_end / interval)
-        stoch = np.random.normal(0, np.sqrt(interval), t_count)
+        stoch = np.random.normal(0, 1, int(t_end / interval))
 
-        values = np.zeros((t_count, 7), dtype=float)
+        values = np.zeros((int(t_end), 7), dtype=float)
         values[0, :] = initial_values
-        path = full_general(t_end, interval, stoch, values, **self.xi_args,
+
+        path = long_general(interval, int(1/interval), stoch, values, **self.xi_args,
                             **self.params)
 
         cols = ['y', 'ks', 'kd', 's', 'h', 'g', 'news']
         # Sampling for every business day
-        self.path = pd.DataFrame(path[::int(1 / interval), :], columns=cols)
+        self.path = pd.DataFrame(path, columns=cols)
 
         return self.path
+
+
+
 
     def asymptotics(self):
         p = self.params
