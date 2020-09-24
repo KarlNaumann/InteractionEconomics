@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 from cython_base.step_functions import long_general
 from matplotlib import pyplot as plt
+from scipy.integrate import solve_ivp
 from scipy.optimize import minimize
 
 
@@ -145,7 +146,7 @@ class SolowModel(object):
         ax[1, 0].ticklabel_format(style='sci', axis='x', scilimits=(0, 0))
         ax[1, 0].legend(loc=3)
         # 4 = Gamma Multiplier
-        ax[1, 1].plot(df.g, label='Multiplier',color='royalblue', **n_line)
+        ax[1, 1].plot(df.g, label='Multiplier', color='royalblue', **n_line)
         ax[1, 1].set_title("Feedback Activation")
         ax[1, 1].set_xlabel("Time")
         ax[1, 1].set_ylabel("Multiplier")
@@ -156,6 +157,65 @@ class SolowModel(object):
         # Final layout
         # fig.suptitle('Summary of Integration', fontsize=16)
         fig.tight_layout()
+        plt.show()
+
+    def limit_supply(self, start: list, t_end: float = 1e4, show: bool = True, save:str=''):
+        """ Solve the capital supply limiting case, i.e. the classic Solow Model
+
+        Parameters
+        ----------
+        start   :   list
+            starting values y0 and k0
+        t_end   :   float
+            integration period
+        show    :   bool
+            whether to show the generated figure
+
+        Returns
+        -------
+        path    :   pd.DataFrame
+            path of integration
+        """
+
+        def step(t, x, tech0, e, rho, tau_y, saving0, dep):
+            v_y = (tech0*np.exp(e*t)*(x[1]**rho) - x[0]) / tau_y
+            v_k = saving0*x[0] - dep*x[1]
+            return [v_y, v_k]
+
+        p = self.params
+        args = (
+            p['tech0'], p['epsilon'], p['rho'], p['tau_y'],
+            p['saving0'], p['dep']
+        )
+        t_eval = np.arange(1, int(t_end) - 1)
+        path = solve_ivp(step, t_span=(1, t_end), y0=start, t_eval=t_eval,
+                         args=args)
+        path = pd.DataFrame(path.y.T, columns=['Y', 'K'])
+
+        fig, ax = plt.subplots(1,1)
+        fig.set_size_inches(6,4)
+        ax.plot(path.Y)
+        ax.set_xlabel('Time (t)')
+        ax.set_ylabel('Production (Y)')
+        ax.set_xlim(0, t_end)
+        # inset axes....
+        axins = ax.inset_axes([0.1, 0.55, 0.4, 0.4])
+        axins.plot(path.Y)
+        x, loc = path.Y.min(), path.Y.argmin()
+        stop = path.Y
+        q = path.Y.iloc[(path.Y-start[0]).abs().argsort()[1:2]].index[0]
+        # sub region of the original image
+
+        x1, x2, y1, y2 = 0, 3e4, path.Y.min()-1, path.Y.iloc[int(3e4)]
+        axins.set_xlim(x1, x2)
+        axins.set_ylim(y1, y2)
+        # axins.set_xticklabels('')
+        #axins.set_yticklabels('')
+        ax.indicate_inset_zoom(axins)
+        ax.ticklabel_format(style='sci', axis='x', scilimits=(0,1))
+        fig.tight_layout()
+        if save != '':
+            plt.savefig(save+'.png', bbox_inches='tight')
         plt.show()
 
     def save(self, item: str = 'model', folder: str = 'computations'):
