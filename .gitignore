@@ -1,5 +1,9 @@
-/data/
-/figures/
 /.idea/
 /.ipynb_checkpoints/
-/simulations/
+/__pycache__/
+
+/data/
+/asymptotic_simulations/
+/asymptotics/
+
+*.ipynb
