@@ -1,107 +1,115 @@
 import os
+import sys
+import pickle
 import time
-from multiprocessing import Process
+from multiprocessing import Pool, cpu_count, get_context
 
-import numpy as np
-import pandas as pd
+from numpy import arange, array
+from pandas import DataFrame
+from solowModel_cython import SolowModel
 
-from solowModel import SolowModel
+
+def name_gen(p, t_end, folder: str = 'computations/') -> str:
+    parts = [
+        'general',
+        't{:05.0e}'.format(t_end),
+        'g{:05.0f}'.format(p['gamma']),
+        'e{:07.1e}'.format(p['epsilon']),
+        'c1_{:03.1f}'.format(p['c1']),
+        'c2_{:07.1e}'.format(p['c2']),
+        'b1_{:03.1f}'.format(p['beta1']),
+        'b2_{:03.1f}'.format(p['beta2']),
+        'ty{:03.0f}'.format(p['tau_y']),
+        'ts{:03.0f}'.format(p['tau_s']),
+        'th{:02.0f}'.format(p['tau_h']),
+        'lam{:01.2f}'.format(p['saving0']),
+        'dep{:07.1e}'.format(p['dep']),
+        'tech{:04.2f}'.format(p['tech0']),
+        'rho{:04.2f}'.format(p['rho']),
+    ]
+
+    name = '_'.join(parts)
+    name = folder + name + '.df'
+    return name
 
 
-def sim_models(parameters: dict, initial_values: np.ndarray,
-               xi_args=None,
-               t_end: float = 1e6,
-               seeds=None,
-               case: str = 'general',
-               save_loc: str = 'pickles/',
-               verbose: bool = False) -> None:
-    """ Simulate a series of 20 dynamic Solow Models given a dictionary of
-    parameters
+def extract_g_c2(filename):
+    parts = filename.split('_')
+    # locate g
+    for i, part in enumerate(parts):
+        if part[0] == 'g' and part[1]!='e':
+            gamma = int(part[1:])
+        if part == 'c2':
+            c2 = float(parts[i + 1])
 
-    Parameters
-    ----------
-    parameters  :   dict
-    initial_values   :   np.ndarray
-    xi_args :   dict (optional)
-    t_end   :   float
-    seeds   :   list
-    case    :   str
-    save_loc:   str
-    verbose :   bool
+    return (gamma, c2)
 
-    Returns
-    -------
 
-    """
-
-    if seeds is None:
-        seeds = list(range(20))
-
-    if xi_args is None:
-        xi_args = dict(decay=0.2, diffusion=1.0)
-
-    sm = SolowModel(parameters, xi_args=xi_args)
-
+def worker(args):
+    sm = args[0]
+    sm.params['gamma'], sm.params['c2'], seeds, t_end, start = args[1:]
+    df = DataFrame(index=seeds,
+                   columns=['psi_y', 'psi_ks', 'psi_kd', 'g', 'sbar_hat',
+                            'sbar_theory', 'sbar_crit'])
     for i, seed in enumerate(seeds):
-        t = time.time()
-        path = sm.solve(initial_values, t_end, seed=seed, case=case, save=True,
-                        folder='test/')
-        if verbose:
-            temp = [seed, i, len(seeds),
-                    time.strftime("%H:%M:%S", time.gmtime(time.time() - t))]
-            print("Seed {:3} ({}/{})\t Time: {}".format(*temp))
+        sm.simulate(start, t_end=t_end, seed=seed)
+        df.loc[seed, :] = sm.asymptotics()
+
+    file = open(name_gen(sm.params, t_end, folder='asymptotics/'), 'wb')
+    pickle.dump(df, file)
+    file.close()
 
 
-def directory_dataframe(save_loc: str = 'pickles/'):
-    file_list = os.listdir(save_loc)
-
-    cols = ['t_end', 'gamma', 'epsilon', 'c1', 'c2', 'beta1', 'beta2', 'tau_y',
-            'tau_s', 'tau_h', 'saving', 'depreciation', 'tech', 'rho', 'seed',
-            'file']
-    directory = pd.DataFrame(index=list(range(len(file_list))), columns=cols)
-
-    for i, file in enumerate(file_list):
-        temp = file.split('_')
-        directory.iloc[i, :] = [float(temp[1][1:]), float(temp[2][1:]),
-                                float(temp[3][1:]), float(temp[5]),
-                                float(temp[7]), float(temp[9]), float(temp[11]),
-                                int(temp[12][2:]), int(temp[13][2:]),
-                                int(temp[14][2:]), float(temp[15][3:]),
-                                float(temp[16][3:]), float(temp[17][4:]),
-                                float(temp[18][3:]), int(temp[16][4:6]), file]
-
-    directory.to_csv(save_loc + 'directory.csv')
+def pool_mgmt(tasks):
+    n_tasks = len(tasks)
+    with get_context("spawn").Pool() as pool:
+        for i, _ in enumerate(pool.imap_unordered(worker, tasks), 1):
+            sys.stderr.write('\rdone {0:%}'.format(i / n_tasks))
+        pool.close()
+        pool.join()
 
 
 if __name__ == '__main__':
-    print("Starting Simulation")
-    params = {
-        'tech0': np.exp(1), 'rho': 1 / 3, 'epsilon': 1e-5, 'tau_y': 1000,
-        'dep': 0.0002,
-        "tau_h": 25, "tau_s": 250, "c1": 1, "c2": 3e-4, "gamma": 2000,
-        "beta1": 1.1, "beta2": 1.0, 'saving0': 0.15, "s0": 0, "h_h": 10
-    }
 
-    start = np.array([1, 10, 10, 0, 0, 1, params['saving0']])
-    # Accurate production adjustment
+    # Set up the simulation batch parameters
+    params = dict(tech0=1, rho=1 / 3, epsilon=1e-5, tau_y=1000, dep=0.0002,
+                  tau_h=25, tau_s=250, c1=1, c2=3.1e-4, gamma=2000, beta1=1.1,
+                  beta2=1.0, saving0=0.15, h_h=10)
+
+    xi_args = dict(decay=0.2, diffusion=2.0)
+    start = array([1, 10, 9, 0, 0, 1, params['saving0']])
     start[0] = params['epsilon'] + params['rho'] * min(start[1:3])
 
-    seeds = list(range(20, 40))
-    for i,seed in enumerate(seeds):
-        print("Seed {} ({}/{})".format(seed, i, len(seeds)))
-        gamma_list = [1e3, 2e3, 3e3]
-        c2_list = [2e-4, 3e-4, 4e-4]
-        for gamma in gamma_list:
-            processes = []
-            params['gamma']=gamma
-            for c2 in c2_list:
-                params['c2']=c2
-                args = (
-                    params, start, None, 1e6, [seed], 'general', 'multi/', True
-                )
-                proc = Process(target=sim_models, args=args)
-                processes.append(proc)
-                proc.start()
+    # Set up the varied parameters gamma and c2
+    gamma_list = arange(1000, 4000, 100)  # arange(1000, 4100, 100)
+    c2_list = arange(1e-4, 5e-4, 2e-5)  # arange(1e-4, 5e-4, 2e-5)
+    seed_list = list(range(10))
 
-            for proc in processes:
-                proc.join()
+    # Set up the Model and saves
+    duration = 1e6
+    sm = SolowModel(params=params, xi_args=xi_args)
+    folder = 'asymptotics2/'
+
+    # Check for any completed parameter combinations
+    files = [f for f in os.listdir(folder) if 'general' in f]
+    done_pairs = [extract_g_c2(f) for f in files]
+
+    # Generate the parameter tuples for the multi-process that are required
+    tasks = []
+    for gamma in gamma_list:
+        for c2 in c2_list:
+            if (gamma, float("{:.6f}".format(c2))) not in done_pairs:
+                tasks.append((sm, gamma, c2, seed_list, duration, start))
+
+    # Verbose Info
+    t = time.time()
+    arg = (len(tasks), cpu_count(), time.strftime("%H:%M:%S", time.gmtime(t)))
+    print("Starting {} processes on {} CPUs at {}".format(*arg))
+
+    # Start simulations
+    pool_mgmt(tasks)
+
+    # Verbose completion
+    time_tot = time.strftime("%H:%M:%S", time.gmtime(time.time() - t))
+    arg = (len(tasks), cpu_count(), time_tot)
+    print("Completed {} processes on {} CPUs in {}".format(*arg))
