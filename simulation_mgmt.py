@@ -2,6 +2,7 @@ import os
 import pickle
 import sys
 import time
+import tqdm
 from itertools import product
 from multiprocessing import cpu_count, get_context
 
@@ -97,11 +98,17 @@ def pool_mgmt(worker, tasks):
     t = time.time()
     arg = (n_tasks, cpu_count(), time.strftime("%H:%M:%S", time.gmtime(t)))
     print("Starting\t{} processes on {} CPUs at {}".format(*arg))
+
+    with get_context("spawn").Pool() as pool:
+        for _ in tqdm.tqdm(pool.imap_unordered(worker, tasks), total=len(tasks)):
+            pass
+    """
     with get_context("spawn").Pool() as pool:
         for i, _ in enumerate(pool.imap_unordered(worker, tasks), 1):
             sys.stderr.write('\rCompleted: {0:.2%}'.format(i / n_tasks))
         pool.close()
         pool.join()
+    """
     print('\n Total Time: {}'.format(
             time.strftime("%H:%M:%S", time.gmtime(time.time() - t))))
 
@@ -125,33 +132,28 @@ def task_creator(variations: dict, folder: str, seeds: list, t_end: float,
         exist = [extract_info(f, kind) for f in files]
         # Iterate through all combinations
         for tup in product(*list(variations.values())):
+            p = dict(params)
             # Update parameter dictionary
             for combo in zip(var_p, tup):
-                params[combo[0]] = combo[1]
+                p[combo[0]] = combo[1]
             # Check if sim already happened or not
             for seed in seeds:
-                if name_gen(params, t_end, folder='', seed=seed) not in files:
-                    arg = (params, xi_args, seeds, t_end, start, folder)
+                if name_gen(p, t_end, folder='', seed=seed) not in files:
+                    arg = (p, xi_args, seeds, t_end, start, folder)
                     tasks.append(arg)
-                else:
-                    print('MATCH')
-
-
 
     elif kind == 'asymptotic':
         exist = [extract_info(f, kind) for f in files]
-        print(exist)
         # Iterate through all combinations
         for tup in product(*list(variations.values())):
+            p = dict(params)
             # Update parameter dictionary
             for combo in zip(var_p, tup):
-                params[combo[0]] = combo[1]
+                p[combo[0]] = combo[1]
 
-            if name_gen(params, t_end, folder='') not in files:
-                arg = (params, xi_args, seeds, t_end, start, folder)
+            arg = (p, xi_args, seeds, t_end, start, folder)
+            if name_gen(p, t_end, folder='') not in files:
                 tasks.append(arg)
-            else:
-                print('MATCH')
 
     return tasks
 
