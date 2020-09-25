@@ -1,4 +1,5 @@
 import os
+import sys
 import pickle
 import time
 from multiprocessing import Pool, cpu_count, get_context
@@ -47,7 +48,6 @@ def extract_g_c2(filename):
 def worker(args):
     sm = args[0]
     sm.params['gamma'], sm.params['c2'], seeds, t_end, start = args[1:]
-    print("Sim: gamma={}, c2={}".format(args[1], args[2]))
     df = DataFrame(index=seeds,
                    columns=['psi_y', 'psi_ks', 'psi_kd', 'g', 'sbar_hat',
                             'sbar_theory', 'sbar_crit'])
@@ -66,6 +66,14 @@ def pool_mgmt(tasks):
         pool.close()
         pool.join()
 
+def pool_mgmt(tasks):
+    n_tasks = len(tasks)
+    with get_context("spawn").Pool() as pool:
+        for i, _ in enumerate(pool.imap_unordered(worker, tasks), 1):
+            sys.stderr.write('\rCompleted: {0:.2%}'.format(i / n_tasks))
+        pool.close()
+        pool.join()
+
 
 if __name__ == '__main__':
 
@@ -75,18 +83,18 @@ if __name__ == '__main__':
                   beta2=1.0, saving0=0.15, h_h=10)
 
     xi_args = dict(decay=0.2, diffusion=2.0)
-    start = array([1, 10, 10, 0, 0, 1, params['saving0']])
+    start = array([1, 10, 9, 0, 0, 1, params['saving0']])
     start[0] = params['epsilon'] + params['rho'] * min(start[1:3])
 
     # Set up the varied parameters gamma and c2
-    gamma_list = arange(1000, 4000, 400)  # arange(1000, 4100, 100)
-    c2_list = arange(1e-4, 5e-4, 5e-5)  # arange(1e-4, 5e-4, 2e-5)
-    seed_list = list(range(10))
+    gamma_list = arange(1000, 4000, 1000)  # arange(1000, 4100, 100)
+    c2_list = arange(1e-4, 5e-4, 1e-4)  # arange(1e-4, 5e-4, 2e-5)
+    seed_list = list(range(2))
 
     # Set up the Model and saves
-    duration = 1e7
+    duration = 1e6
     sm = SolowModel(params=params, xi_args=xi_args)
-    folder = 'asymptotics/'
+    folder = 'asymptotics2/'
 
     # Check for any completed parameter combinations
     files = [f for f in os.listdir(folder) if 'general' in f]
