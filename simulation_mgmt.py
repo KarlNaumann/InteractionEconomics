@@ -65,8 +65,7 @@ def worker_path(args):
     # Simulate
     path = sm.simulate(start, t_end=t_end, seed=seed)
     # Save
-    name = name_gen(sm.params, t_end, folder=folder, seed=seed)
-    file = open(name, 'wb')
+    file = open(name_gen(args[0], t_end, folder=folder, seed=seed), 'wb')
     pickle.dump(path, file)
     # Close
     file.close()
@@ -85,8 +84,7 @@ def worker_asymp(args):
         sm.simulate(start, t_end=t_end, seed=seed)
         df.loc[seed, :] = sm.asymptotics()
     # Save
-    name = name_gen(sm.params, t_end, folder=folder)
-    file = open(name, 'wb')
+    file = open(name_gen(args[0], t_end, folder=folder), 'wb')
     pickle.dump(df, file)
     # Close
     file.close()
@@ -98,7 +96,7 @@ def pool_mgmt(worker, tasks):
     n_tasks = len(tasks)
     t = time.time()
     arg = (n_tasks, cpu_count(), time.strftime("%H:%M:%S", time.gmtime(t)))
-    print("Starting B2 Variations\t{} processes on {} CPUs at {}".format(*arg))
+    print("Starting\t{} processes on {} CPUs at {}".format(*arg))
     with get_context("spawn").Pool() as pool:
         for i, _ in enumerate(pool.imap_unordered(worker, tasks), 1):
             sys.stderr.write('\rCompleted: {0:.2%}'.format(i / n_tasks))
@@ -132,20 +130,28 @@ def task_creator(variations: dict, folder: str, seeds: list, t_end: float,
                 params[combo[0]] = combo[1]
             # Check if sim already happened or not
             for seed in seeds:
-                if (t_end, params['gamma'], params['c2'], seed) not in exist:
+                if name_gen(params, t_end, folder='', seed=seed) not in files:
                     arg = (params, xi_args, seeds, t_end, start, folder)
                     tasks.append(arg)
+                else:
+                    print('MATCH')
+
+
 
     elif kind == 'asymptotic':
         exist = [extract_info(f, kind) for f in files]
+        print(exist)
         # Iterate through all combinations
         for tup in product(*list(variations.values())):
             # Update parameter dictionary
             for combo in zip(var_p, tup):
                 params[combo[0]] = combo[1]
-            if (t_end, params['gamma'], params['c2']) not in exist:
+
+            if name_gen(params, t_end, folder='') not in files:
                 arg = (params, xi_args, seeds, t_end, start, folder)
                 tasks.append(arg)
+            else:
+                print('MATCH')
 
     return tasks
 
@@ -215,7 +221,7 @@ def case_b1_asymp():
     # Set up all of the combinations to use
     seeds = list(range(5))
     tasks = task_creator(b1_variations, folder='simulations/', seeds=seeds,
-                         t_end=1e7, start=init_val(), kind='path')
+                         t_end=1e7, start=init_val(), kind='asymptotic')
 
     # Run the multiprocessed simulations
     pool_mgmt(worker_asymp, tasks)
@@ -231,7 +237,7 @@ def case_b2_asymp():
     # Set up all of the combinations to use
     seeds = list(range(5))
     tasks = task_creator(b2_variations, folder='simulations/', seeds=seeds,
-                         t_end=1e7, start=init_val(), kind='path')
+                         t_end=1e7, start=init_val(), kind='asymptotic')
 
     # Run the multiprocessed simulations
     pool_mgmt(worker_asymp, tasks)
