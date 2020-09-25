@@ -218,7 +218,7 @@ def case_b1_asymp():
                          t_end=1e7, start=init_val(), kind='path')
 
     # Run the multiprocessed simulations
-    pool_mgmt(worker_path, tasks)
+    pool_mgmt(worker_asymp, tasks)
 
 
 def case_b2_asymp():
@@ -234,7 +234,7 @@ def case_b2_asymp():
                          t_end=1e7, start=init_val(), kind='path')
 
     # Run the multiprocessed simulations
-    pool_mgmt(worker_path, tasks)
+    pool_mgmt(worker_asymp, tasks)
 
 
 if __name__ == '__main__':
