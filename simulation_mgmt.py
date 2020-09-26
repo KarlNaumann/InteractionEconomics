@@ -234,7 +234,7 @@ def case_b2_asymp():
     b2_variations = dict(
             gamma=np.arange(1000, 4000, 250),
             c2=np.arange(1e-4, 5e-4, 2e-5),
-            beta2=[1.1, 1.2, 1.3])
+            beta2=[0.5, 0.6, 0.7, 0.8, 0.9])
 
     # Set up all of the combinations to use
     seeds = list(range(5))
