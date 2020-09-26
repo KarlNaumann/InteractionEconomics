@@ -100,7 +100,7 @@ def pool_mgmt(worker, tasks):
     print("Starting\t{} processes on {} CPUs at {}".format(*arg))
 
     with get_context("spawn").Pool() as pool:
-        for _ in tqdm.tqdm(pool.imap_unordered(worker, tasks), total=len(tasks)):
+        for _ in tqdm.tqdm(pool.imap_unordered(worker, tasks), total=len(tasks), position=0, leave=True):
             pass
     """
     with get_context("spawn").Pool() as pool:
