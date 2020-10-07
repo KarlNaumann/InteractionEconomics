@@ -170,8 +170,8 @@ def init_val():
 def case_b1_paths():
     # Interesting Variations
     b1_variations = dict(
-            gamma=np.arange(1000, 4000, 100),
-            c2=np.arange(1e-4, 5e-4, 2e-5),
+            gamma=np.arange(1000, 4000, 500),
+            c2=np.arange(1e-4, 5e-4, 5e-5),
             beta1=[1.1, 1.2, 1.3])
 
     # Set up all of the combinations to use
@@ -185,8 +185,8 @@ def case_b1_paths():
 def case_b2_paths():
     # Interesting Variations
     b2_variations = dict(
-            gamma=np.arange(1000, 4000, 250),
-            c2=np.arange(1e-4, 5e-4, 2e-5),
+            gamma=np.arange(1000, 4000, 500),
+            c2=np.arange(1e-4, 5e-4, 5e-5),
             beta2=[1.1, 1.2, 1.3])
 
     # Set up all of the combinations to use
@@ -200,8 +200,8 @@ def case_b2_paths():
 def case_c1_paths():
     # Interesting Variations
     c1_variations = dict(
-            gamma=np.arange(1000, 4000, 100),
-            c2=np.arange(1e-4, 5e-4, 2e-5),
+            gamma=np.arange(1000, 4000, 500),
+            c2=np.arange(1e-4, 5e-4, 5e-5),
             c1=[0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3],
     )
 
@@ -232,6 +232,22 @@ def case_b1_asymp():
 def case_b2_asymp():
     # Interesting Variations
     b2_variations = dict(
+            gamma=np.arange(1000, 4000, 250),
+            c2=np.arange(1e-4, 5e-4, 2e-5),
+            beta2=[0.5, 0.6, 0.7, 0.8, 0.9])
+
+    # Set up all of the combinations to use
+    seeds = list(range(5))
+    tasks = task_creator(b2_variations, folder='simulations/', seeds=seeds,
+                         t_end=1e7, start=init_val(), kind='asymptotic')
+
+    # Run the multiprocessed simulations
+    pool_mgmt(worker_asymp, tasks)
+
+
+def case_b2_asymp():
+    # Interesting Variations
+    variations = dict(
             gamma=np.arange(1000, 4000, 250),
             c2=np.arange(1e-4, 5e-4, 2e-5),
             beta2=[0.5, 0.6, 0.7, 0.8, 0.9])

@@ -155,7 +155,13 @@ class SolowModel(object):
         ax[1, 1].legend(loc=3)
         # Final layout
         fig.tight_layout()
-        plt.show()
+        if save != '':
+            if '.png' not in save:
+                save += '.png'
+            plt.savefig(save, bbox_inches='tight')
+            plt.close()
+        else:
+            plt.show()
 
     def save(self, item: str = 'model', folder: str = 'computations'):
         """ Export the model, or an aspect of the model, to a folder as a

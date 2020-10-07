@@ -21,8 +21,8 @@ from ornstein_uhlenbeck import OrnsteinUhlenbeck
 
 class PhaseDiagram(object):
     def __init__(self, tau_h: float = 25, tau_s: float = 250,
-                 tau_y: float = 2000, epsilon: float = 5e-5, c1: float = 1,
-                 c2: float = 15e-5, s0: float = 0, tech0: float = 1,
+                 tau_y: float = 2000, epsilon: float = 1e-5, c1: float = 1,
+                 c2: float = 2e-4, s0: float = 0, tech0: float = 1,
                  beta1: float = 1.1, beta2: float = 1.0, gamma: float = 2000,
                  phi: float = 1.0, theta: float = 0.2, sigma: float = 2.5):
         """ Class instance to generate various phase diagram representations of
@@ -55,7 +55,7 @@ class PhaseDiagram(object):
         }
         self.s_args = {"tau": tau_s, "b1": beta1, "b2": beta2}
         self.h_args = {"tau": tau_h, "gamma": gamma, "phi": phi}
-        self.ou_args = {"decay": theta, "diffusion": sigma, "drift": 0, "t0": 1}
+        self.ou_args = {"decay": theta, "diffusion": sigma, "t0": 1}
 
         # Initialise some additional useful params
         self.epsilon = epsilon

@@ -112,13 +112,13 @@ class ClassicSolow(object):
         axins_y.set_ylim(y_min, path.Y.iloc[ix])
         #axins_y.set_xticklabels('')
         #axins_y.set_yticklabels('')
-        a = axins_y.get_xticks().tolist()
-        a[1] = 'change'
-        axins_y.set_xticklabels(a)
+        #a = axins_y.get_xticks().tolist()
+        #a[1] = 'change'
+        #axins_y.set_xticklabels(a)
         #axins_y.set_xticklabels(labels)
         #axins_y.ticklabel_format(style='sci', axis='x', scilimits=(0, 1))
         ax[0].indicate_inset_zoom(axins_y)
-        ax[0].ticklabel_format(style='sci', axis='x', scilimits=(0, 1))
+        #ax[0].ticklabel_format(style='sci', axis='x', scilimits=(0, 1))
         # Capital
         ax[1].plot(path.K)
         ax[1].set_xlabel('Time (t)')
