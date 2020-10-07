@@ -245,16 +245,15 @@ def case_b2_asymp():
     pool_mgmt(worker_asymp, tasks)
 
 
-def case_b2_asymp():
+def case_finegrain_asymp():
     # Interesting Variations
     variations = dict(
-            gamma=np.arange(1000, 4000, 250),
-            c2=np.arange(1e-4, 5e-4, 2e-5),
-            beta2=[0.5, 0.6, 0.7, 0.8, 0.9])
+            gamma=np.arange(1000, 6000, 100),
+            c2=np.arange(1e-4, 6e-4, 1e-5))
 
     # Set up all of the combinations to use
     seeds = list(range(5))
-    tasks = task_creator(b2_variations, folder='simulations/', seeds=seeds,
+    tasks = task_creator(variations, folder='simulations/', seeds=seeds,
                          t_end=1e7, start=init_val(), kind='asymptotic')
 
     # Run the multiprocessed simulations
