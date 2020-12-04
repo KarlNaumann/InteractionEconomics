@@ -1,144 +1,302 @@
 import numpy as np
 import pandas as pd
+import seaborn as sns
+
 from matplotlib import pyplot as plt
+from matplotlib import rc
 from scipy.integrate import solve_ivp
+from scipy.integrate import odeint
+
+def boundary_layer_approximation(t_end: float, b: float, eps: float, rho: float, tau_y: float, lam: float, dep: float):
+    """ Calculate the path of production for the classic Solow case based on
+    the approximate solution from the boundary layer technique
+
+    Parameters
+    ----------
+    t_end   :   float
+        duration of the simulation
+    b   :   float
+        constant of integration
+    eps :   float
+        technology growth rate
+    rho :   float
+        capital share in cobb-douglas production
+    tau_y   :   float
+        characteristic timescale of production
+    lam :   float
+        household saving rate
+    dep :   float
+        depreciation rate
+
+    Returns
+    -------
+    solution    :    np.ndarray
+        solution path of production
+
+    """
+    rhoi = 1 - rho
+    constant = (lam / dep) ** (rho / rhoi)
+    t = np.arange(int(t_end))
+    temp = (b * np.exp(-rhoi * t / tau_y) + 1) ** (1 / rhoi)
+    temp += np.exp(eps * t / rhoi)
+    return constant * (temp - 1)
 
 
-class ClassicSolow(object):
-    def __init__(self, params):
-        """Implementation of the classic Solow Model
+def classic_solow_growth_path(t_end: float, start: list, eps: float, rho: float, tau_y: float, lam: float, dep: float):
+    """ Function to integrate the path of capital and production in the classic
+    solow limiting case
 
-        Attributes
-        -----------
-        params  :   dict
-            dictionary of parameters, must contain [tech0, epsilon, rho, tau_y,
-            saving0, dep
-        path    :   pd.DataFrame
-            simulated path for Y and K
+    Parameters
+    ----------
+    t_end   :   float
+        total time of the simulation
+    start   :   list
+        initial values y0, k0
+    eps :   float
+        technology growth rate
+    rho :   float
+        capital share in cobb-douglas production
+    tau_y   :   float
+        characteristic timescale of production
+    lam :   float
+        household saving rate
+    dep :   float
+        depreciation rate
 
-        Methods
-        -------
-        simulate()      :   solve initial value problem
-        visualise_y(i)  :   matplotlib plot of production
+    Returns
+    -------
+    path    :   pd.DataFrame
+        path of capital and production
+    """
 
-        """
-        self.params = params
-        self.path = None
+    path = pd.DataFrame(index=np.arange(int(t_end)), columns=['y', 'k'], dtype=float)
+    path.loc[0, :] = start
+    for t in path.index[1:]:
+        y, k = path.loc[t - 1, :].values
+        v_y = np.exp((rho * k) + (eps * t) - y) - 1
+        v_k = lam * np.exp(y - k) - dep
+        path.loc[t, 'y'] = path.loc[t-1,'y'] + v_y / tau_y
+        path.loc[t, 'k'] = path.loc[t-1,'k'] + v_k
+    return path
 
-    def simulate(self, initial_values: np.ndarray,
-                 t_end: float) -> pd.DataFrame:
-        """ Simulating the classic Solow model using Scipy with Runge-Kute
-        4th order
 
-        Parameters
-        ----------
-        initial_values  :   np.ndarray
-            order is [Y, Ks]
-        t_end   :   float
-        interval    :   float
-        seed    :   float
+def second_order_differential(t_end: float, start: list, y0: float, eps: float, rho: float, tau_y: float, lam: float, dep: float):
+    """ Function to integrate the path of capital and of capital and production
+    based on the second-order differential equation in the classic Solow case
 
-        Returns
-        -------
-        path    :   pd.DataFrame
+    Parameters
+    ----------
+    t_end   :   float
+        total time of the simulation
+    start   :   list
+        initial values k0, y0
+    eps :   float
+        technology growth rate
+    rho :   float
+        capital share in cobb-douglas production
+    tau_y   :   float
+        characteristic timescale of production
+    lam :   float
+        household saving rate
+    dep :   float
+        depreciation rate
 
-        """
-        p = self.params
-        args = (
-            p['tech0'], p['epsilon'], p['rho'], p['tau_y'],
-            p['saving0'], p['dep']
-        )
-        t_eval = np.arange(1, int(t_end) - 1)
-        path = solve_ivp(self._step, t_span=(1, t_end), y0=initial_values,
-                         t_eval=t_eval, args=args)
-        self.path = pd.DataFrame(path.y.T, columns=['Y', 'K'])
-        return self.path
+    Returns
+    -------
+    path    :   pd.DataFrame
+        path of capital and production
+    """
 
-    @staticmethod
-    def _step(t, x, tech0, e, rho, tau_y, saving0, dep):
-        """ Single timestep in the classic solow model
+    path_k = pd.DataFrame(index=np.arange(int(t_end)), columns=['k', 'dk'])
+    path_k.loc[0, :] = start
+    for t in path_k.index[1:]:
+        k, dk_dt = path_k.loc[t-1,:]
+        d2k_dt2 = lam * (k ** rho) * np.exp(eps * t)
+        d2k_dt2 -= dep * k
+        d2k_dt2 -= (1 + tau_y * dep) * dk_dt
+        d2k_dt2 = d2k_dt2 #/ tau_y
 
-        Parameters
-        ----------
-        x   :   list
-            values at time t
-        t   :   float
-            time
-        tech0, e, rho, tau_y, saving0, dep  :   float
-            parametrisation of the model
+        path_k.loc[t,'k'] = k + dk_dt
+        path_k.loc[t,'dk'] = dk_dt + d2k_dt2
 
-        Returns
-        -------
-        v   :   list
-            velocities at time t
-        """
-        v_y = (tech0 * np.exp(e * t) * (x[1] ** rho) - x[0]) / tau_y
-        v_k = saving0 * x[0] - dep * x[1]
-        return [v_y, v_k]
+    y = exact_production(path_k.loc[:,'k'].values, y0, eps, rho, tau_y)
+    data = np.hstack([path_k.loc[:,'k'].values[:, np.newaxis], y[:, np.newaxis]])
+    return pd.DataFrame(data, columns=['K', 'Y']).astype(float)
 
-    def visualise(self, save: str = '', show: bool = True):
-        """ Visual representation of production in the classic solow case
 
-        Parameters
-        ----------
-        save    :   str
-            filepath to save under (.png will be added if missing)
-        show    :   bool
-            whether or not to thow the figure
-        Returns
-        -------
-        ax  :   matplotlib axis object
-        """
-        # Setup
-        path = self.path
-        # Determine inset dimensions
-        mask = (path.Y - 2 * path.iloc[0, 0]).abs().argsort()[:2]
-        ix = path.Y.iloc[mask].index[0]
-        inset_xlim = [0, ]
 
-        # Figure
-        fig, ax = plt.subplots(1, 2)
-        fig.set_size_inches(8, 4)
-        # Production
-        ax[0].plot(path.Y)
-        ax[0].set_xlabel('Time (t)')
-        ax[0].set_ylabel('Production (Y)')
-        ax[0].set_xlim(0, path.index[-1])
-        # Inset
-        axins_y = ax[0].inset_axes([0.1, 0.5, 0.4, 0.4])
-        axins_y.plot(path.Y)
-        axins_y.set_xlim(0, ix)
-        y_min = path.Y.iloc[:ix].min() - 0.25*path.Y.iloc[0]
-        axins_y.set_ylim(y_min, path.Y.iloc[ix])
-        #axins_y.set_xticklabels('')
-        #axins_y.set_yticklabels('')
-        #a = axins_y.get_xticks().tolist()
-        #a[1] = 'change'
-        #axins_y.set_xticklabels(a)
-        #axins_y.set_xticklabels(labels)
-        #axins_y.ticklabel_format(style='sci', axis='x', scilimits=(0, 1))
-        ax[0].indicate_inset_zoom(axins_y)
-        #ax[0].ticklabel_format(style='sci', axis='x', scilimits=(0, 1))
-        # Capital
-        ax[1].plot(path.K)
-        ax[1].set_xlabel('Time (t)')
-        ax[1].set_ylabel('Capital (K)')
-        ax[1].set_xlim(0, path.index[-1])
-        # Inset
-        axins_k = ax[1].inset_axes([0.1, 0.5, 0.4, 0.4])
-        axins_k.plot(path.K)
-        axins_k.set_xlim(0, ix)
-        axins_k.set_ylim(path.K.iloc[:ix].min(), path.K.iloc[ix])
-        #axins_k.set_xticklabels('')
-        #axins_k.set_yticklabels('')
-        axins_k.ticklabel_format(style='sci', axis='both', scilimits=(0, 1))
-        ax[1].indicate_inset_zoom(axins_k)
-        ax[1].ticklabel_format(style='sci', axis='both', scilimits=(0, 1))
-        # Complete
-        fig.tight_layout()
-        if save != '':
-            if '.png' not in save:
-                save += '.png'
-            plt.savefig(save, bbox_inches='tight')
+def exact_step(t: float, x: list, eps: float, rho: float, tau_y: float, lam: float, dep: float):
+    """ Velocities for the second order differential equation that summarises
+    the path of capital in the classic solow limiting case
+
+    Parameters
+    ----------
+    t   :   float
+        time of the current step
+    x   :   list
+        variables k and dk_dt at time t
+    eps :   float
+        technology growth rate
+    rho :   float
+        capital share in cobb-douglas production
+    tau_y   :   float
+        characteristic timescale of production
+    lam :   float
+        household saving rate
+    dep :   float
+        depreciation rate
+
+    Returns
+    -------
+    velocity    :   list
+        dk_dt and d2k_dt2 (first and second order derivative at t
+    """
+    k, dk_dt = x
+
+    d2k_dt2 = lam * (k ** rho) * np.exp(eps * t)
+    d2k_dt2 -= dep * k
+    d2k_dt2 -= (1 + tau_y * dep) * dk_dt
+    d2k_dt2 = d2k_dt2 / tau_y
+
+    return [dk_dt, d2k_dt2]
+
+
+def exact_production(k: np.ndarray, y0: float, eps: float, rho: float, tau_y: float):
+    """ Calculating the path of production given the path of capital determined
+    byt he second order differential equation
+
+    Parameters
+    ----------
+    k   :   np.ndarray
+        path of capital
+    eps :   float
+        technology growth rate
+    rho :   float
+        capital share in production
+    tau_y   :   float
+        characteristic timescale of production
+
+    Returns
+    -------
+    y   :   np.ndarray
+        path of production
+    """
+
+    y = np.empty_like(k)
+    y[0] = y0
+    for t in range(1, y.shape[0]):
+        v_y = np.exp(eps * t) * k[t] ** rho - y[t - 1]
+        y[t] = y[t - 1] + (v_y / tau_y)
+
+    return y
+
+
+def exact_solution(t_end: float, start: list, y0: float, eps: float, rho: float, tau_y: float, lam: float, dep: float):
+    """ Function to integrate the path of capital and of capital and production
+    based on the second-order differential equation in the classic Solow case
+
+    Parameters
+    ----------
+    t_end   :   float
+        total time of the simulation
+    start   :   list
+        initial values k0, y0
+    eps :   float
+        technology growth rate
+    rho :   float
+        capital share in cobb-douglas production
+    tau_y   :   float
+        characteristic timescale of production
+    lam :   float
+        household saving rate
+    dep :   float
+        depreciation rate
+
+    Returns
+    -------
+    path    :   pd.DataFrame
+        path of capital and production
+    """
+
+    def derivative(x, t, eps, rho, tau, lam, dep):
+        k, dk = x
+        dk2 = lam * (k**rho) * np.exp(eps*t) - (dep*k) - (1+tau*dep) * dk
+        return np.array([dk, dk2/tau])
+
+    t = np.arange(int(t_end))
+    args = (eps, rho, tau_y, lam, dep)
+    k,_ = odeint(derivative, start, t, args=args).T
+    y = exact_production(k, y0, eps, rho, tau_y)
+    data = np.hstack([k[:,np.newaxis], y[:,np.newaxis]])
+    return pd.DataFrame(data, columns=['k', 'y'], dtype=float)
+
+    """
+    path = solve_ivp(exact_step, t_span=(0, t_end), y0=start,
+                     t_eval=np.arange(int(t_end)),
+                     args=(rho, eps, dep, lam, tau_y),
+                     atol=1e-5, rtol=1e-5, max_step=100, first_step=1)
+
+    y = exact_production(path.y.T[:,0], y0, eps, rho, tau_y)
+    data = np.hstack([path.y.T[:,0, np.newaxis], y[:, np.newaxis]])
+    return pd.DataFrame(data, columns=['k', 'y'], dtype=float)
+    """
+
+def plot_settings():
+    # Plotting preamble
+    sns.set()
+    plt.rcParams['text.latex.preamble']\
+        = r'\usepackage[bitstream-charter, greekfamily=default]{mathdesign}'
+    rc('text', usetex=True)
+    rc('font', **{'family': 'serif'})
+    plt.rcParams['axes.labelsize'] = 18
+    plt.rcParams.update({'figure.figsize': (8, 6),
+                         'axes.titlesize': 18,
+                         'legend.fontsize': 18,
+                         'axes.labelsize': 20})
+
+
+def time_series_plot(df: pd.DataFrame, save: str = ''):
+    fig, ax = plt.subplots(1, 1)
+    for col in df.columns:
+        ax.plot(df.loc[:, col], label=col)
+    ax.legend()
+    fig.tight_layout()
+    if save != '':
+        if '.png' not in save:
+            save += '.png'
+        plt.savefig(save, bbox_inches='tight')
+    else:
         plt.show()
-        return ax
+
+
+if __name__ == '__main__':
+
+    #plot_settings()
+
+    # Parameterisation
+    p = dict(rho=0.5, eps=1/100000, tau_y=1000, lam=0.5, dep=0.5)
+    const = 1e-1
+    t_end = 4e4
+
+    # Boundary layer approximation
+    bla = boundary_layer_approximation(t_end, const, **p)
+
+    # Starting values are in real terms and match the integral
+    ln_y0 = np.log(bla[0])
+    ln_k0 = ln_y0 / p['rho']
+    print("Starting values:\n\ty = {:.3f}\n\tk = {:.3f}".format(ln_y0, ln_k0))
+
+    solow = np.exp(classic_solow_growth_path(t_end, [ln_y0, ln_k0], **p))
+    exact = exact_solution(t_end, [np.exp(ln_k0), 0], bla[0], **p)
+
+    data_y = np.hstack(
+            [bla[:, np.newaxis], solow.loc[:, 'y'].values[:,np.newaxis],
+             exact.y.values[:, np.newaxis]])
+    comparison_y = pd.DataFrame(data_y, columns=['BL', 'Solow', 'Exact'])
+    print(comparison_y.head())
+
+    data_k = np.hstack([solow.loc[:, 'k'].values[:,np.newaxis],
+                       exact.k.values[:, np.newaxis]])
+    comparison_k = pd.DataFrame(data_k, columns=['Solow', 'Exact'])
+    print(comparison_k.head())
+    time_series_plot(comparison_y)
