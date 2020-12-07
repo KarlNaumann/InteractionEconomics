@@ -10,10 +10,10 @@ import numpy as np
 import pandas as pd
 
 from solowModel import SolowModel
+from demandSolow import DemandSolow
 
 
 # HELPER FUNCTIONS
-
 def name_gen(p, t_end, folder='computations/', seed=None) -> str:
     parts = [
         'general',
@@ -35,7 +35,7 @@ def name_gen(p, t_end, folder='computations/', seed=None) -> str:
 
     name = '_'.join(parts)
     if seed is not None:
-        return folder + name + 'seed_{:d}'.format(seed) + '.df'
+        return folder + name + '_seed_{:d}'.format(seed) + '.df'
     else:
         return folder + name + '.df'
 
@@ -57,19 +57,27 @@ def extract_info(filename, kind):
         return t, gamma, c2
 
 
-# MULTIPROCESSING FUNCTIONS
+def init_val():
+    # Starting value
+    start = np.array([1, 10, 9, 0, 0, 1, 0])
+    start[0] = 1e-5 + (min(start[1:3]) / 3)
+    return start
 
+
+# MULTIPROCESSING FUNCTIONS
 def worker_path(args):
     # Initialise
     sm = SolowModel(params=args[0], xi_args=args[1])
-    seed, t_end, start, folder = args[2:]
-    # Simulate
-    path = sm.simulate(start, t_end=t_end, seed=seed)
-    # Save
-    file = open(name_gen(args[0], t_end, folder=folder, seed=seed), 'wb')
-    pickle.dump(path, file)
-    # Close
-    file.close()
+    seeds, t_end, start, folder = args[2:]
+
+    for i, seed in enumerate(seeds):
+        # Simulate
+        path = sm.simulate(start, t_end=t_end, seed=seed)
+        # Save
+        file = open(name_gen(args[0], t_end, folder=folder, seed=seed), 'wb')
+        pickle.dump(path, file)
+        # Close
+        file.close()
     del sm
 
 
@@ -93,31 +101,38 @@ def worker_asymp(args):
     del df
 
 
+def worker_demand_limit(args):
+    # Initialise
+    sm = DemandSolow(params=args[0], xi_args=args[1])
+    seeds, t_end, start, folder = args[2:]
+
+    for i, seed in enumerate(seeds):
+        # Simulate
+        path = sm.simulate(start, t_end=t_end, seed=seed)
+        if i == 0:
+            sm.phase_diagram()
+        # Save
+        p = dict(args[0])
+        p['saving0'], p['dep'], p['h_h'] = 0,0,0
+        file = open(name_gen(p, t_end, folder=folder, seed=seed), 'wb')
+        pickle.dump(path, file)
+        # Close
+        file.close()
+    del sm
+
+
 def pool_mgmt(worker, tasks):
-    n_tasks = len(tasks)
-    t = time.time()
+    n_tasks, t = len(tasks), time.time()
     arg = (n_tasks, cpu_count(), time.strftime("%H:%M:%S", time.gmtime(t)))
     print("Starting\t{} processes on {} CPUs at {}".format(*arg))
 
     with get_context("spawn").Pool() as pool:
         for _ in tqdm.tqdm(pool.imap_unordered(worker, tasks), total=len(tasks), position=0, leave=True):
             pass
-    """
-    with get_context("spawn").Pool() as pool:
-        for i, _ in enumerate(pool.imap_unordered(worker, tasks), 1):
-            sys.stderr.write('\rCompleted: {0:.2%}'.format(i / n_tasks))
-        pool.close()
-        pool.join()
-    """
-    print('\n Total Time: {}'.format(
-            time.strftime("%H:%M:%S", time.gmtime(time.time() - t))))
 
 
 # SIMULATION HELPERS
-
-def task_creator(variations: dict, folder: str, seeds: list, t_end: float,
-                 start: np.ndarray, kind: str = 'asymptotic',
-                 xi_args: dict = dict(decay=0.2, diffusion=2.0)):
+def task_creator(variations: dict, folder: str, seeds: list, t_end: float, start: np.ndarray, kind: str = 'asymptotic', xi_args: dict = dict(decay=0.2, diffusion=2.0)):
     # Set up the simulation batch parameters
     params = dict(tech0=1, rho=1 / 3, epsilon=1e-5, tau_y=1000, dep=0.0002,
                   tau_h=25, tau_s=250, c1=1, c2=3.1e-4, gamma=2000, beta1=1.1,
@@ -155,18 +170,30 @@ def task_creator(variations: dict, folder: str, seeds: list, t_end: float,
             if name_gen(p, t_end, folder='') not in files:
                 tasks.append(arg)
 
+    elif kind == 'demand_limit':
+        exist = [extract_info(f, 'path') for f in files]
+        params2 = dict(tech0=1, rho=1 / 3, epsilon=1e-5, tau_y=1000,
+                  tau_h=25, tau_s=250, c1=1, c2=3.1e-4, gamma=2000, beta1=1.1,
+                  beta2=1.0)
+        start = np.array([1, 0, 9, 0, 0, 0])
+        start[0] = np.exp(start[1])
+        # Iterate through all combinations
+        for tup in product(*list(variations.values())):
+            p = dict(params2)
+            p2 = dict(params)
+            # Update parameter dictionary
+            for combo in zip(var_p, tup):
+                p[combo[0]] = combo[1]
+                p2[combo[0]] = combo[1]
+
+            arg = (p, xi_args, seeds, t_end, start, folder)
+            if name_gen(p2, t_end, folder='') not in files:
+                tasks.append(arg)
+
     return tasks
 
 
 # OPTIONS
-
-def init_val():
-    # Starting value
-    start = np.array([1, 10, 9, 0, 0, 1, 0])
-    start[0] = 1e-5 + (min(start[1:3]) / 3)
-    return start
-
-
 def case_b1_paths():
     # Interesting Variations
     b1_variations = dict(
@@ -252,7 +279,7 @@ def case_finegrain_asymp():
             c2=np.arange(1e-4, 6e-4, 1e-5))
 
     # Set up all of the combinations to use
-    seeds = list(range(5))
+    seeds = list(range(25))
     tasks = task_creator(variations, folder='simulations/', seeds=seeds,
                          t_end=1e7, start=init_val(), kind='asymptotic')
 
@@ -260,5 +287,120 @@ def case_finegrain_asymp():
     pool_mgmt(worker_asymp, tasks)
 
 
+def case_paths():
+    # Interesting Variations
+    b1_variations = dict(
+            gamma= [6000],
+            c2 = [3e-4])
+
+    seeds = list(range(1,11))
+
+    # Set up all of the combinations to use
+    tasks = task_creator(b1_variations, folder='paths/', seeds=seeds,
+                         t_end=1e6, start=init_val(), kind='path',
+                         xi_args = dict(decay=0.2, diffusion=1.0))
+
+    # Run the multiprocessed simulations
+    pool_mgmt(worker_path, tasks)
+
+
+def case_path_test():
+    # Interesting Variations
+    variations = dict(gamma= [4000], c2 = [2.5e-4])
+
+    seeds = list(range(1,31))
+    folder = '/Users/karlnaumann/Desktop/Solow_Model/paths_general/'
+
+    # Set up all of the combinations to use
+    tasks = task_creator(variations, folder=folder, seeds=seeds,
+                         t_end=1e6, start=init_val(), kind='path',
+                         xi_args = dict(decay=0.2, diffusion=2.5))
+
+    # Run the multiprocessed simulations
+    pool_mgmt(worker_path, tasks)
+
+
+def case_demand_test():
+    # Interesting Variations
+    variations = dict(gamma= [6000], c2 = [2.5e-4])
+
+    seeds = list(range(1,11))#[54]
+    folder = '/Users/karlnaumann/Desktop/Solow_Model/paths_demand/'
+
+
+    # Set up all of the combinations to use
+    tasks = task_creator(variations, folder=folder, seeds=seeds,
+                         t_end=1e6, start=init_val(), kind='demand_limit',
+                         xi_args = dict(decay=0.2, diffusion=2.5))
+
+    # Run the multiprocessed simulations
+    for args in tasks:
+        worker_demand_limit(args)
+
+
+def demand_limit_gamma_variations():
+    """Generate the phase diagrams for variations in the gamma parameter"""
+
+    variations = [1000, 4000, 7000]
+    seeds = [42]
+    folder = '/Users/karlnaumann/Desktop/Solow_Model/paths_demand/'
+    params = dict(tech0=1, rho=1 / 3, epsilon=1e-5, tau_y=1000, tau_h=25,
+                  tau_s=250, c1=1, c2=2.5e-4, gamma=2000, beta1=1.1, beta2=1.0,
+                  s0=-0.05)
+
+    start = np.array([1, 0, 9, 0, 0, 0])
+    start[0] = np.exp(start[1])
+
+    for gamma in variations:
+        params['gamma'] = gamma
+        sm = DemandSolow(params=params, xi_args=dict(decay=0.2, diffusion=2.0))
+        for seed in seeds:
+            sm.simulate(start, t_end=1e6, seed=seed)
+            info = pd.Series([params['c2'], params['gamma']],
+                             index=['c2', 'gamma'])
+            sm.phase_diagram(save=fig_name(folder, info, 'limit_phase_diagram'))
+
+
+def demand_limit_c2_variations():
+    """Generate the phase diagrams for variations in the gamma parameter"""
+    variations = [1.5e-4, 2.5e-4, 3.5e-4]
+    seeds = [42]
+    folder = '/Users/karlnaumann/Desktop/Solow_Model/paths_demand/'
+    params = dict(tech0=1, rho=1 / 3, epsilon=1e-5, tau_y=1000, tau_h=25,
+                  tau_s=250, c1=1, c2=2.5e-4, gamma=4000, beta1=1.1,
+                  beta2=1.0, s0=-0.05)
+
+    start = np.array([1, 0, 9, 0, 0, 0])
+    start[0] = np.exp(start[1])
+
+    for c2 in variations:
+        params['c2'] = c2
+        sm = DemandSolow(params=params,
+                         xi_args=dict(decay=0.2, diffusion=2.0))
+        for seed in seeds:
+            sm.simulate(start, t_end=1e6, seed=seed)
+            info = pd.Series([params['c2'], params['gamma']],
+                             index=['c2', 'gamma'])
+            sm.phase_diagram(
+                save=fig_name(folder, info, 'limit_phase_diagram'))
+
+
+def fig_name(folder, info, kind):
+    struct = ['g_{:.0f}_'.format(info.gamma),
+              'c2_{:.0f}_'.format(info.c2 * 1e5)]
+
+    try:
+        struct.append('seed_{:.0f}'.format(info.seed))
+    except AttributeError:
+        pass
+
+    return '{}fig_{}_{}.png'.format(folder, kind, ''.join(struct))
+
 if __name__ == '__main__':
     globals()[sys.argv[1]]()
+
+
+
+
+
+
