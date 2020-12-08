@@ -260,5 +260,5 @@ if __name__ == '__main__':
 
     folder = os.getcwd().split('/')
     save = '/'.join(folder[:-1] + ['Paper', 'figures', 'fig_empirics.png'])
-
+    print("Fig location: ", save)
     timeseries_plot(growth_rates, rec=True, save=save)

@@ -6,4 +6,8 @@
 /asymptotic_simulations/
 /asymptotics/
 
+/paths/
+/paths_demand/
+/paths2/
+
 *.ipynb

@@ -41,7 +41,7 @@ class DemandSolow(object):
         """
         self.params = params
         if 's0' not in params.keys():
-            self.params['s0'] = 0
+            self.params['s0'] = -0.1#-0.15
         self.xi_args = xi_args
         self.path = None
 
@@ -92,7 +92,7 @@ class DemandSolow(object):
 
         # Generate the plots
         fig, ax = plt.subplots(3, 1)
-        fig.set_size_inches(6, 10)
+        fig.set_size_inches(8, 12)
 
         # Phase Diagram
         self._sh_phase(ax[0])

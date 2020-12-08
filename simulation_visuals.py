@@ -136,22 +136,18 @@ def categorise_directory(folder: str = 'simulations', t_end='t1e+07'):
     return df, df.groupby(['beta1', 'beta2'])
 
 
-def file_category(folder: str = 'simulations', t_end: str = 't1e+07'):
-    files = [f for f in os.listdir(folder) if '.df' in f and t_end in f]
-    p, _ = parse_filename(files[0])
-    df = pd.DataFrame(index=list(range(len(files))),
-                      columns=list(p.keys()) + ['t_end', 'file'])
-    for i, f in enumerate(files):
-        p, t_end = parse_filename(f)
-        df.iloc[i, :-2] = p
-        df.loc[i, 't_end'] = t_end
-        df.loc[i, 'file'] = folder + '/' + f
-
-    df.set_index('file', inplace=True)
-    return df, df.groupby(['beta1', 'beta2'])
-
-
 def load_sims(files: list, t_end: str = 't1e+07'):
+    """ Load stored dataframes from their respective pickle files
+
+    Parameters
+    ----------
+    files   :   list
+    t_end   :   str
+
+    Returns
+    -------
+    sims    :   dict
+    """
     sims = {}
     for path in files:
         file = open(path, 'rb')
@@ -159,6 +155,7 @@ def load_sims(files: list, t_end: str = 't1e+07'):
         sims[path] = df
         file.close()
     return sims
+
 
 
 def analysis_dfs(sims: dict, cat_df: pd.DataFrame, epsilon: float = 1e-5):
@@ -184,9 +181,11 @@ def analysis_dfs(sims: dict, cat_df: pd.DataFrame, epsilon: float = 1e-5):
             key = cat_df[cat_df.loc[:, 'gamma'] == g]
             key = key[key.loc[:, 'c2'] == c2]
             if not key.index.empty:
+                print(g, c2)
                 # Results of parameter simulations
                 df = sims[key.index[0]]
                 df_g.loc[c2, g] = df.g.mean()
+                print(df.g)
                 df_div.loc[c2, g] = (df.psi_ks - df.psi_kd).mean()
                 df_yks.loc[c2, g] = (df.psi_ks - df.psi_y).mean()
                 df_y_check.loc[c2, g] = np.tanh(g * df.psi_y.mean())
@@ -347,7 +346,7 @@ if __name__ == '__main__':
     folder = '/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/Econophysics/Project_SolowModel/Paper/figures/'
     folder = '/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/Econophysics/Project_SolowModel/Test_figures/'
 
-    mask_epsilon = -1e-8
+    mask_epsilon = -2e-8
     convergence_heatmap(folder, mask_epsilon)
 
     # g_analysis(folder)

@@ -169,6 +169,7 @@ def task_creator(variations: dict, folder: str, seeds: list, t_end: float, start
             arg = (p, xi_args, seeds, t_end, start, folder)
             if name_gen(p, t_end, folder='') not in files:
                 tasks.append(arg)
+        print(len(tasks))
 
     elif kind == 'demand_limit':
         exist = [extract_info(f, 'path') for f in files]
@@ -278,8 +279,12 @@ def case_finegrain_asymp():
             gamma=np.arange(1000, 6000, 100),
             c2=np.arange(1e-4, 6e-4, 1e-5))
 
+    print("Gamma:\t", len(variations['gamma']), " variaions")
+    print("C2:   \t", len(variations['c2']), " variations")
+
     # Set up all of the combinations to use
     seeds = list(range(25))
+    print("Seeds: ", len(seeds))
     tasks = task_creator(variations, folder='simulations/', seeds=seeds,
                          t_end=1e7, start=init_val(), kind='asymptotic')
 

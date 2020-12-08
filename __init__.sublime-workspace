@@ -1,0 +1,811 @@
+{
+	"auto_complete":
+	{
+		"selected_items":
+		[
+			[
+				"wor",
+				"worker_asymp"
+			],
+			[
+				"tau_",
+				"tau_y"
+			],
+			[
+				"sex",
+				"set_xlim"
+			],
+			[
+				"tot",
+				"tot_tests\tstatement"
+			],
+			[
+				"teh",
+				"thetaMethod\tmodule"
+			],
+			[
+				"expSmoo",
+				"expSmoothingMethod\tmodule"
+			],
+			[
+				"the",
+				"thetaMethod"
+			],
+			[
+				"exp",
+				"expSmoothing"
+			],
+			[
+				"fore",
+				"forecast_analysis"
+			],
+			[
+				"tmpp",
+				"tmpplus1\tstatement"
+			],
+			[
+				"diag",
+				"diagonal\tfunction"
+			],
+			[
+				"sig",
+				"sigE\tstatement"
+			],
+			[
+				"plo",
+				"plotForecasts\tfunction"
+			],
+			[
+				"theta",
+				"thetaMethod\tclass"
+			],
+			[
+				"foreca",
+				"forecasts\tstatement"
+			],
+			[
+				"test",
+				"test_data\tstatement"
+			],
+			[
+				"beta",
+				"beta2\tparam"
+			],
+			[
+				"cl",
+				"classicApproximateSolution\tfunction"
+			],
+			[
+				"cu",
+				"current_val\tstatement"
+			],
+			[
+				"del",
+				"delta\tparam"
+			],
+			[
+				"rel",
+				"relaxation_path\tstatement"
+			],
+			[
+				"prarm",
+				"parameters"
+			],
+			[
+				"data_s",
+				"data_slm_subsamples\tfunction"
+			],
+			[
+				"fama",
+				"famaFrench\tstatement"
+			],
+			[
+				"sp",
+				"sparseWeights\tfunction"
+			],
+			[
+				"py",
+				"pysalWeights\tfunction"
+			],
+			[
+				"loadP",
+				"loadPriceIDs\tfunction"
+			],
+			[
+				"coo",
+				"common_banks"
+			],
+			[
+				"ag",
+				"aggMaturity\tparam"
+			],
+			[
+				"price",
+				"priceData\tfunction"
+			],
+			[
+				"csc",
+				"csc_matrix\tclass"
+			],
+			[
+				"E",
+				"Eigenvals"
+			],
+			[
+				"fmin",
+				"fminbound\tfunction"
+			],
+			[
+				"con",
+				"concentratedLLF\tfunction"
+			],
+			[
+				"empty",
+				"empty_like\tstatement"
+			],
+			[
+				"emp",
+				"empty_like\tstatement"
+			],
+			[
+				"get",
+				"get_W\tfunction"
+			],
+			[
+				"spat",
+				"spatialAutoregression\tclass"
+			],
+			[
+				"w",
+				"w_series\tstatement"
+			],
+			[
+				"W",
+				"W_t_min_1\tstatement"
+			],
+			[
+				"file",
+				"fileDict_banks"
+			],
+			[
+				"lo",
+				"loadBankNames"
+			],
+			[
+				"fil",
+				"fileDict_banks"
+			],
+			[
+				"reg",
+				"regRes_DGonAll\tstatement"
+			],
+			[
+				"var",
+				"var_choice\tstatement"
+			],
+			[
+				"n",
+				"ndarray"
+			],
+			[
+				"import",
+				"importData\tfunction"
+			],
+			[
+				"to",
+				"to_datetime"
+			],
+			[
+				"date",
+				"dateparser\tstatement"
+			],
+			[
+				"logG",
+				"logGrossRet\tstatement"
+			],
+			[
+				"from",
+				"from_product\tfunction"
+			],
+			[
+				"header",
+				"headerLevels\tstatement"
+			],
+			[
+				"sub",
+				"sublevel\tstatement"
+			],
+			[
+				"head",
+				"headerLevels\tstatement"
+			],
+			[
+				"col_t",
+				"col_tuple\tstatement"
+			],
+			[
+				"la",
+				"latexTable\tclass"
+			],
+			[
+				"col_b",
+				"col_bottom\tstatement"
+			],
+			[
+				"col",
+				"col_top\tstatement"
+			],
+			[
+				"resul",
+				"results_CS\tstatement"
+			],
+			[
+				"err",
+				"err_logRet\tstatement"
+			],
+			[
+				"resu",
+				"results_CS\tstatement"
+			],
+			[
+				"log",
+				"logGrossRet\tstatement"
+			],
+			[
+				"mod",
+				"mod_logGrossDG\tstatement"
+			],
+			[
+				"cov",
+				"cov_type\tparam"
+			],
+			[
+				"logGr",
+				"logGrossDG\tstatement"
+			],
+			[
+				"P",
+				"P-Value"
+			],
+			[
+				"df",
+				"df_analysis"
+			],
+			[
+				"save",
+				"savefile\tparam"
+			],
+			[
+				"late",
+				"latexExport\tstatement"
+			],
+			[
+				"df_desc",
+				"df_desc1927\tstatement"
+			],
+			[
+				"latex",
+				"latexPlots\tstatement"
+			],
+			[
+				"spa",
+				"spatialPanel\tclass"
+			],
+			[
+				"recipe_id",
+				"recipe_id_list\tstatement"
+			],
+			[
+				"recip",
+				"recipe_id_list\tstatement"
+			],
+			[
+				"Buy",
+				"Buy_Q"
+			],
+			[
+				"api",
+				"api_url\tstatement"
+			],
+			[
+				"recipe",
+				"recipe_list\tstatement"
+			],
+			[
+				"font",
+				"fontdict"
+			],
+			[
+				"mode",
+				"model_choice"
+			],
+			[
+				"linal",
+				"linalg\tmodule"
+			],
+			[
+				"pred_",
+				"pred_mod_err\tstatement"
+			],
+			[
+				"df_pre",
+				"df_pred_rw"
+			],
+			[
+				"pred_mod",
+				"pred_mod_err"
+			],
+			[
+				"max",
+				"max_horizon"
+			],
+			[
+				"forec",
+				"forecast_err_rw"
+			],
+			[
+				"MZ_",
+				"MZ_Joint"
+			],
+			[
+				"MZ_B",
+				"MZ_BetaStat"
+			],
+			[
+				"MZ_Al",
+				"MZ_AlphaStat"
+			],
+			[
+				"sample",
+				"samplesize\tstatement"
+			],
+			[
+				"sampl",
+				"samplesize\tstatement"
+			],
+			[
+				"curr",
+				"currTime"
+			],
+			[
+				"norm",
+				"normal_500\tstatement"
+			],
+			[
+				"normal_",
+				"normal_200\tstatement"
+			],
+			[
+				"plt",
+				"plotSimulation\tfunction"
+			],
+			[
+				"nonlin",
+				"nonlin_res\tstatement"
+			],
+			[
+				"Data",
+				"DataFrame"
+			],
+			[
+				"trend",
+				"trend_res"
+			],
+			[
+				"season",
+				"seasonality_res\tstatement"
+			],
+			[
+				"set_",
+				"set_index\tfunction"
+			],
+			[
+				"le",
+				"legend"
+			],
+			[
+				"ti",
+				"tight_layout"
+			],
+			[
+				"print",
+				"printProgressBar\tfunction"
+			],
+			[
+				"low",
+				"low_aic\tstatement"
+			],
+			[
+				"loss",
+				"loss_a\tparam"
+			],
+			[
+				"re",
+				"recessionSE\tfunction"
+			],
+			[
+				"plot",
+				"plotData\tfunction"
+			],
+			[
+				"datase",
+				"dataset_id\tstatement"
+			],
+			[
+				"res",
+				"res_jbs\tstatement"
+			],
+			[
+				"i",
+				"idxmin\tfunction"
+			],
+			[
+				"recess",
+				"recessionSE\tfunction"
+			],
+			[
+				"result",
+				"result_acf\tstatement"
+			],
+			[
+				"Autocorre",
+				"Autocorrelation"
+			],
+			[
+				"set",
+				"set_xlabel"
+			],
+			[
+				"Autoco",
+				"Autocorrelation"
+			],
+			[
+				"label",
+				"labelsize"
+			],
+			[
+				"ax",
+				"axis"
+			],
+			[
+				"tic",
+				"tick_params"
+			],
+			[
+				"resut",
+				"result_acf\tstatement"
+			],
+			[
+				"Da",
+				"DataFrame"
+			],
+			[
+				"al",
+				"alpha\tparam"
+			],
+			[
+				"par",
+				"partialAutoCorr\tfunction"
+			],
+			[
+				"desc",
+				"descriptives"
+			],
+			[
+				"stat",
+				"staticmethod\tclass"
+			],
+			[
+				"LEI",
+				"LEI_code"
+			],
+			[
+				"bank",
+				"bankNames\tstatement"
+			],
+			[
+				"na",
+				"nameBanks\tfunction"
+			],
+			[
+				"load",
+				"loadCountryNames\tfunction"
+			],
+			[
+				"T",
+				"True\tinstance"
+			]
+		]
+	},
+	"buffers":
+	[
+	],
+	"build_system": "",
+	"build_system_choices":
+	[
+		[
+			[
+				[
+					"Packages/Python/Python.sublime-build",
+					""
+				],
+				[
+					"Packages/Python/Python.sublime-build",
+					"Syntax Check"
+				]
+			],
+			[
+				"Packages/Python/Python.sublime-build",
+				""
+			]
+		]
+	],
+	"build_varint": "",
+	"command_palette":
+	{
+		"height": 0.0,
+		"last_filter": "",
+		"selected_items":
+		[
+			[
+				"theme",
+				"Activate Materialize Theme"
+			],
+			[
+				"install",
+				"Package Control: Install Package"
+			],
+			[
+				"pacl",
+				"Package Control: Install Package"
+			],
+			[
+				"pack",
+				"Package Control: Install Package"
+			],
+			[
+				"insta",
+				"Package Control: Install Package"
+			]
+		],
+		"width": 0.0
+	},
+	"console":
+	{
+		"height": 115.0,
+		"history":
+		[
+		]
+	},
+	"distraction_free":
+	{
+		"menu_visible": true,
+		"show_minimap": false,
+		"show_open_files": false,
+		"show_tabs": false,
+		"side_bar_visible": false,
+		"status_bar_visible": false
+	},
+	"file_history":
+	[
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/Econophysics/Project_SolowModel/Code_Dynamic_SolowModel/dynamics.py",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/Econophysics/Code/DynamicDSGE/naiveImplementation.py",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/Econophysics/Code/DynamicSolowModel/data/dep.csv",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/Econophysics/Code/DynamicSolowModel/phase_diagram.py",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/Econophysics/Code/DynamicSolowModel/classicSolow.py",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/Econophysics/Internship_SolowModel/Test_figures/fig_asymptotics_divergence_b1_1.2_b2_1.0.png",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/Econophysics/Code/DynamicSolowModel/simulation_mgmt.py",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/Econophysics/Code/DynamicSolowModel/.gitignore",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/Econophysics/Code/DynamicSolowModel/tester_script.py",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/Econophysics/Internship_SolowModel/Draft_Paper/figures/fig_asymptotics_yks_b1_1.1_b2_1.0.png",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/Econophysics/Internship_SolowModel/Draft_Paper/figures/fig_asymptotics_g_b1_1.3_b2_1.0.png",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/Econophysics/Internship_SolowModel/Draft_Paper/figures/fig_asymptotics_divergence_b1_1.1_b2_1.0.png",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/Econophysics/Internship_SolowModel/Draft_Paper/figures/fig_asymptotics_divergence_b1_1.2_b2_1.0.png",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/Econophysics/Internship_SolowModel/Draft_Paper/figures/fig_asymptotics_g_b1_1.2_b2_1.0.png",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/Econophysics/Internship_SolowModel/Draft_Paper/figures/fig_asymptotics_g_b1_1.1_b2_1.0.png",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/Econophysics/Internship_SolowModel/Draft_Paper/figures/fig_asymptotics_divergence_b1_1.3_b2_1.0.png",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/Econophysics/Code/DynamicSolowModel/solowModel.py",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/Econophysics/Code/DynamicSolowModel/paper_visuals.py",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/Econophysics/Code/DynamicSolowModel/simulation_paths.py",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/Econophysics/Code/DynamicSolowModel/new/tester_script.py",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/Econophysics/Code/DynamicSolowModel/new/solowModel_cython.py",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/Econophysics/Code/DynamicSolowModel/new/general_case 29_08_2020_1.json",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/Econophysics/Internship_SolowModel/Old_Matlab_Solver/deqslv/DifferentialEquationSolver.m",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/Econophysics/Code/DynamicSolowModel/new/cython_base/step_functions.pyx",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/Econophysics/Code/DynamicSolowModel/new/simulation_multiprocess.py",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/Econophysics/Code/DynamicSolowModel/performance_test.py",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/Econophysics/Code/DynamicSolowModel/readme.md",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/Econophysics/Code/DynamicSolowModel/solowModel_profile.py",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/Econophysics/Code/DynamicSolowModel/new/cython_base/setup.py",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/Econophysics/Code/DynamicSolowModel/new/__init__.py",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/Econophysics/econophysix_models/README.md",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/SBS_MFE/Core_Econometrics/Econometrics_A3/main.py",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/Econophysics/Internship/deqslv/sollow2ndlimit10_n2.json",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/Econophysics/Internship/NewsDrivenStockMarket/phaseDiagram.py",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/SBS_MFE/Thesis_SpatialEconometrics/MasterThesis/visuals.py",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/Econophysics/Internship/NewsDrivenStockMarket/README.md",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/Econophysics/InteractionEconomics/solow/solowModel.py",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/Econophysics/InteractionEconomics/solow/firm.py",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/Econophysics/InteractionEconomics/README.md",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/SBS_MFE/Thesis_SpatialEconometrics/MasterThesis/py2latex.py",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/SBS_MFE/Elective_AdvancedEconometrics/AECN_Individual/matlabFormatter.py",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/SBS_MFE/Elective_AdvancedEconometrics/AdvEconometricsGroup/visualisation.py",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/SBS_MFE/Core_Econometrics/Econometrics_A3/autoGrader.py",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/SBS_MFE/Elective_AdvancedEconometrics/AdvEconometricsGroup/methods/model.py",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/SBS_MFE/PhD Ecole Polytechnique/ResearchProposal/ProposalReferences.bib",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/SBS_MFE/Elective_AdvancedEconometrics/AECN_Individual/Matlab/assignment_live.mlx",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/SBS_MFE/Thesis_SpatialEconometrics/MasterThesis/dataProcessing.py",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/EUR_BSC2/Y4B5 - Thesis/Implementation/result_analysis.py",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/SBS_MFE/Elective_AdvancedEconometrics/AdvEconometricsGroup/dataAnalysis.py",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/SBS_MFE/Elective_AdvancedEconometrics/AdvEconometricsGroup/main copy.py",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/SBS_MFE/Thesis_SpatialEconometrics/MasterThesis/spatialAutoregression.py",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/SBS_MFE/Elective_AdvancedEconometrics/AdvEconometricsGroup/main.py",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/SBS_MFE/Elective_AdvancedEconometrics/AdvEconometricsGroup/CARDMethod.py",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/SBS_MFE/Elective_AdvancedEconometrics/AdvEconometricsGroup/MAmethod.py",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/SBS_MFE/Elective_AdvancedEconometrics/AdvEconometricsGroup/rhoMethod.py",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/SBS_MFE/Elective_AdvancedEconometrics/AdvEconometricsGroup/__pycache__/rhoMethod.cpython-37.pyc",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/SBS_MFE/PhD Ecole Polytechnique/Call_MichaelBenzaquen_18052020.rtf",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/SBS_MFE/Elective_AdvancedEconometrics/AdvEconometricsGroup/methods",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/SBS_MFE/PhD Ecole Polytechnique/Internship/NewsDrivenStockMarket/phaseDiagram.py",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/SBS_MFE/PhD Ecole Polytechnique/Internship/NewsDrivenStockMarket/interactionsModel.py",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/SBS_MFE/Thesis_SpatialEconometrics/MasterThesis/testingSAR.py",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/Python/LGT_M2_Project 2/phaseDiagram.py",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/SBS_MFE/Elective_AdvancedEconometrics/CARD.py",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/Python/romanNumbers.py",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/Python/Py2LaTeX/py2latex.py",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/SBS_MFE/Core_AssetPricing/AssetPricing_Assignment02/main.py",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/SBS_MFE/Core_AssetPricing/AssetPricing_Assignment02/py2latex.py",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/Python/Py2LaTeX/test.py",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/SBS_MFE/Core_Econometrics/Econometrics_A4/main.py",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/SBS_MFE/Core_AssetPricing/AssetPricing_Assignment01/main.py",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/SBS_MFE/Core_AssetPricing/AssetPricing_Assignment02/AssetPricing_A2.tex",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/SBS_MFE/Core_Econometrics/metrics_assignment2/main.py",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/SBS_MFE/Core_Econometrics/metrics_assignment2/assignment.py",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/SBS_MFE/Core_Econometrics/Econometrics_Assignment04/README.md",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/SBS_MFE/Core_Econometrics/Econometrics_Assignment03/main.py",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/SBS_MFE/Thesis_SpatialEconometrics/MasterThesis/main.py",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/SBS_MFE/Thesis_SpatialEconometrics/MasterThesis/spatialEstimator.py",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/Python/GW2TP/main.py",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/EUR_BSC2/Y4B5 - Thesis/Implementation/Final Code/result_analysis.py",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/SBS_MFE/Core_Econometrics/Econometrics_Assignment03/test.py",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/EUR_BSC2/Y4B3/Quantitative Methods for Finance/QuantMethodsAss1/QM_Att2.py",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/EUR_BSC2/Y4B5 - Thesis/Implementation/Final Code/data.py",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/SBS_MFE/Thesis_SpatialEconometrics/PythonImplementation/main.py",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/SBS_MFE/Core_Econometrics/Econometrics_Assignment03/Data/UNRATENSA.csv",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/SBS_MFE/Core_Econometrics/Econometrics_Assignment03/Data/UMCSENT.csv",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/SBS_MFE/Core_Econometrics/Econometrics_Assignment03/Data/TOTALNSA.csv",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/SBS_MFE/Core_Econometrics/Econometrics_Assignment03/Data/HOUSTNSA.csv",
+		"/Users/karlnaumann/Dropbox/FinMetrics Seminar/SeminarProgramming/AdaptiveElasticNet.py",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/SBS_MFE/Thesis_SpatialEconometrics/PythonImplementation/Outline",
+		"/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/SBS_MFE/Thesis_SpatialEconometrics/PythonImplementation/pbDet.py"
+	],
+	"find":
+	{
+		"height": 28.0
+	},
+	"find_in_files":
+	{
+		"height": 0.0,
+		"where_history":
+		[
+		]
+	},
+	"find_state":
+	{
+		"case_sensitive": false,
+		"find_history":
+		[
+		],
+		"highlight": true,
+		"in_selection": false,
+		"preserve_case": false,
+		"regex": false,
+		"replace_history":
+		[
+		],
+		"reverse": false,
+		"show_context": true,
+		"use_buffer2": true,
+		"whole_word": false,
+		"wrap": true
+	},
+	"groups":
+	[
+		{
+			"sheets":
+			[
+			]
+		}
+	],
+	"incremental_find":
+	{
+		"height": 28.0
+	},
+	"input":
+	{
+		"height": 64.0
+	},
+	"layout":
+	{
+		"cells":
+		[
+			[
+				0,
+				0,
+				1,
+				1
+			]
+		],
+		"cols":
+		[
+			0.0,
+			1.0
+		],
+		"rows":
+		[
+			0.0,
+			1.0
+		]
+	},
+	"menu_visible": true,
+	"output.exec":
+	{
+		"height": 29.0
+	},
+	"output.find_results":
+	{
+		"height": 0.0
+	},
+	"output.mdpopups":
+	{
+		"height": 0.0
+	},
+	"pinned_build_system": "Packages/Python/Python.sublime-build",
+	"project": "__init__.sublime-project",
+	"replace":
+	{
+		"height": 52.0
+	},
+	"save_all_on_build": true,
+	"select_file":
+	{
+		"height": 0.0,
+		"last_filter": "",
+		"selected_items":
+		[
+		],
+		"width": 0.0
+	},
+	"select_project":
+	{
+		"height": 0.0,
+		"last_filter": "",
+		"selected_items":
+		[
+		],
+		"width": 0.0
+	},
+	"select_symbol":
+	{
+		"height": 0.0,
+		"last_filter": "",
+		"selected_items":
+		[
+		],
+		"width": 0.0
+	},
+	"selected_group": 0,
+	"settings":
+	{
+	},
+	"show_minimap": true,
+	"show_open_files": true,
+	"show_tabs": true,
+	"side_bar_visible": true,
+	"side_bar_width": 197.0,
+	"status_bar_visible": true,
+	"template_settings":
+	{
+		"max_columns": 3
+	}
+}
