@@ -282,8 +282,12 @@ def case_finegrain_asymp():
     print("Gamma: ", len(variations['gamma']), " variations")
     print("C2: ", len(variations['c2']), " variations")
 
+    print("Gamma:\t", len(variations['gamma']), " variaions")
+    print("C2:   \t", len(variations['c2']), " variations")
+
     # Set up all of the combinations to use
     seeds = list(range(25))
+    print("Seeds: ", len(seeds))
     tasks = task_creator(variations, folder='simulations/', seeds=seeds,
                          t_end=1e7, start=init_val(), kind='asymptotic')
 
