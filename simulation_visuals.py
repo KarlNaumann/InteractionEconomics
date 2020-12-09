@@ -1,161 +1,10 @@
 import os
-import pickle
-
 import numpy as np
 import pandas as pd
-import seaborn as sns
-import statsmodels.api as stat
-from matplotlib import pyplot as plt
-from matplotlib import rc
+import utilities as ut
 
 from demandSolow import DemandSolow
 from phase_diagram import PhaseDiagram
-
-# Graphing scripts
-
-def plot_settings():
-    """ Set the parameters for plotting such that they are consistent across
-    the different models
-    """
-    sns.set()
-    plt.rcParams['text.latex.preamble']\
-        = r'\usepackage[bitstream-charter, greekfamily=default]{mathdesign}'
-    rc('text', usetex=True)
-    rc('font', **{'family': 'serif'})
-    plt.rcParams['axes.labelsize'] = 18
-    plt.rcParams.update({'figure.figsize': (8, 6),
-                         'axes.titlesize': 18,
-                         'legend.fontsize': 18,
-                         'axes.labelsize': 20})
-
-
-def heatmap(df: pd.DataFrame, label: str, save='', scatter=None, show=False, limits=None, freq=2):
-    y_l = ['{:.1e}'.format(float(i)) for i in df.index]
-    fig, ax = plt.subplots(1, 1)
-    fig.set_size_inches(7, 5)
-    params = dict(
-            cmap='coolwarm',
-            # xticklabels = freq,
-            # yticklabels = freq,
-            linewidths=0.1,
-            ax=ax,
-
-    )
-
-    col, ix = df.columns.to_list(), df.index.to_list()
-    p2 = dict(xlim=(min(col), max(col)), ylim=(min(ix), max(ix)),
-              xticks=sorted(col)[::freq], yticks=sorted(ix)[::freq])
-
-    if limits is None:
-        g = sns.heatmap(df.astype(float), cbar_kws={'label': label},
-                        **params)
-
-        # ax.ticklabel_format(style='sci', axis='both', scilimits=(0, 0))
-        # ax.ticklabel_format(style='sci', axis='x', scilimits=(0, 0))
-        # ax.set_xticklabels(ax.get_xmajorticklabels(), fontsize = 16)
-        # ax.set_yticklabels(y_l[::2], fontsize = 16)
-    else:
-        g = sns.heatmap(df.astype(float), cbar_kws={'label': label},
-                        **params, vmin=limits[0], vmax=limits[1])
-
-    # ax.xaxis.set_major_formatter(ScalarFormatter())
-    # ax.yaxis.set_major_formatter(ScalarFormatter())
-    # ax.ticklabel_format(style='sci', axis='both', scilimits=(0, 0))
-    ax.set_xticks(np.arange(0, len(col), freq) + 0.5)
-    ax.set_xticklabels(['{:.1f}'.format(i * 1e-3) for i in sorted(col)[::freq]])
-    ax.set_yticks(np.arange(0, len(ix), freq) + 0.5)
-    ax.set_yticklabels(['{:.1f}'.format(i * 1e4) for i in sorted(ix)[::freq]])
-    ax.text(1.0, -0.05, '1e3', transform=ax.transAxes,
-            horizontalalignment='right',
-            verticalalignment='top')
-    ax.text(-0.05, 1.0, '1e-4', transform=ax.transAxes,
-            horizontalalignment='left',
-            verticalalignment='bottom')
-    # ax.set_xticklabels(ax.get_xmajorticklabels(), fontsize = 16)
-    # ax.set_yticklabels(y_l[::2], fontsize = 16)
-    if isinstance(scatter, list):
-        x, y = scatter
-        ax.plot([i + 0.5 for i in x], [i + 0.5 for i in y], color='black',
-                marker='x', linewidth=3.0)
-    ax.tick_params(axis='x', labelrotation=0)
-    ax.invert_yaxis()
-    plt.tight_layout()
-    if save != '':
-        if '.png' not in save:
-            save += '.png'
-        plt.savefig(save, bbox_inches='tight')
-    if show:
-        plt.show()
-    plt.close()
-    return ax
-
-
-# Utility Scripts
-
-def parse_filename(filename: str):
-    """ Extract the parameter values from the filename and return them in the
-    form of a dictionary. Also extracts the simulation duration.
-
-    Parameters
-    ----------
-    filename    :   str
-
-    Returns
-    -------
-    parameters  :   dict
-    """
-    parts = filename[:-3].split('_')
-
-    names = ['tech0', 'rho', 'epsilon', 'saving0', 'dep', 'tau_y', 'tau_s',
-             'tau_h', 'c1', 'c2', 'beta1', 'beta2', 'gamma', 't_end']
-    loc = [17, 18, 3, 15, 16, 12, 13, 14, 5, 7, 9, 11, 2, 1]
-    cut = [4, 3, 1, 3, 3, 2, 2, 2, 0, 0, 0, 0, 1, 1]
-
-    params = {p[0]: float(parts[p[1]][p[2]:]) for p in zip(names, loc, cut)}
-
-    return params
-
-
-def categorise_directory(folder: str = 'simulations', t_end='t1e+07'):
-    """ Combine into dataframe, indexed by filename, the various parameters for
-    the simulations that have been run
-
-    Parameters
-    ----------
-    folder  :   str
-    t_end   :   str
-
-    Returns
-    -------
-    df  :   pd.DataFrame
-    """
-    files = [f for f in os.listdir(folder) if '.df' in f and t_end in f]
-    data = {f: parse_filename(f) for f in files}
-    df = pd.DataFrame(data).T
-    df.index = [folder + '/' + i for i in df.index]
-    return df, df.groupby(['beta1', 'beta2'])
-
-
-def load_sims(files: list, t_end: str = 't1e+07'):
-    """ Load stored dataframes from their respective pickle files
-
-    Parameters
-    ----------
-    files   :   list
-    t_end   :   str
-
-    Returns
-    -------
-    sims    :   dict
-    """
-    sims = {}
-    for path in files:
-        file = open(path, 'rb')
-        df = pickle.load(file)
-        sims[path] = df
-        file.close()
-    return sims
-
 
 
 def analysis_dfs(sims: dict, cat_df: pd.DataFrame, epsilon: float = 1e-5):
@@ -181,11 +30,9 @@ def analysis_dfs(sims: dict, cat_df: pd.DataFrame, epsilon: float = 1e-5):
             key = cat_df[cat_df.loc[:, 'gamma'] == g]
             key = key[key.loc[:, 'c2'] == c2]
             if not key.index.empty:
-                print(g, c2)
                 # Results of parameter simulations
                 df = sims[key.index[0]]
                 df_g.loc[c2, g] = df.g.mean()
-                print(df.g)
                 df_div.loc[c2, g] = (df.psi_ks - df.psi_kd).mean()
                 df_yks.loc[c2, g] = (df.psi_ks - df.psi_y).mean()
                 df_y_check.loc[c2, g] = np.tanh(g * df.psi_y.mean())
@@ -195,7 +42,6 @@ def analysis_dfs(sims: dict, cat_df: pd.DataFrame, epsilon: float = 1e-5):
                         b2 * df_g.loc[c2, g]) + epsilon
                 # Empirical Check
                 df_check2.loc[c2, g] = df_div.loc[c2, g] - epsilon < 0
-
 
                 lim_g_min, lim_g_max = df_g.min(), df_g.max()
                 lim_div_min = df_div.min()
@@ -226,18 +72,11 @@ def fig_name(b1: float, b2: float, kind: str):
     return 'fig_asymptotics_{}_b1_{:.1f}_b2_{:.1f}.png'.format(kind, b1, b2)
 
 
-def divergence_loc(cutoff, df):
-    q = df[df < cutoff].astype(float).idxmax(axis=1).dropna()
-    g, c2 = list(df.columns), list(df.index)
-    x = [g.index(i) for i in q]
-    y = [c2.index(i) for i in q.index]
-    return [x, y]
-
-
 # Functions to Execute
 
-def asymptotic_analyis(folder):
-    cat_df, gb = categorise_directory()
+def asymptotic_analyis(data_folder, save_folder):
+    cat_df = ut.parse_directory(data_folder, criteria=['.df'])
+    gb = cat_df.groupby(['beta1', 'beta2'])
     analysis = {}
     labels = ['g', 'Psi_ks-Psi_kd', 'Psi_ks-Psi_y']
     titles = ['g', 'divergence', 'yks']
@@ -247,44 +86,38 @@ def asymptotic_analyis(folder):
     for b1b2, group in gb:
         if b1b2[0] > b1[0] and b1b2[0] < b1[1]:
             if b1b2[1] > b2[0] and b1b2[1] < b2[1]:
-                sims = load_sims(group.index.to_list())
+                sims = ut.load_sims(group.index.to_list())
                 dfs = analysis_dfs(sims, group)
                 analysis[b1b2] = dict(g=dfs[0], div=dfs[1],
                                       yks=dfs[2], y_c=dfs[3])
-                div_ix = divergence_loc(1e-8, dfs[1])
                 mask = mask_check(dfs[4])
                 freq = 2 if b1b2 != (1.1, 1.0) else 5
                 for i, df in enumerate(dfs[:3]):
-                    name = folder + fig_name(b1b2[0], b1b2[1], titles[i])
-                    heatmap(df.mask(mask), labels[i], name, limits=lims[i],
-                            freq=freq)
+                    name = save_folder + fig_name(b1b2[0], b1b2[1], titles[i])
+                    ut.c2_gamma_heatmap(df.mask(mask), labels[i], name,
+                                        limits=lims[i], freq=freq)
 
                 if b1b2 == (1.1, 1.0):
                     for i, df in enumerate(dfs[:3]):
-                        name = folder + fig_name(b1b2[0], b1b2[1], titles[i])
-                        heatmap(df.mask(mask), labels[i],
-                                name[:-4] + 'no_lim.png',
-                                freq=freq)
+                        name = save_folder + fig_name(b1b2[0], b1b2[1], titles[i])
+                        ut.c2_gamma_heatmap(df.mask(mask), labels[i],
+                                            name[:-4] + 'no_lim.png', freq=freq)
 
 
-def convergence_heatmap(folder, mask_epsilon):
-    cat_df, gb = categorise_directory()
-    analysis = {}
-    labels = ['g', 'Psi_ks-Psi_kd', 'Psi_ks-Psi_y']
+def convergence_heatmap(data_folder, save_folder):
+    cat_df = ut.parse_directory(data_folder, criteria=['.df'])
+    gb = cat_df.groupby(['beta1', 'beta2'])
+    labels = ['g', r'$\Psi_{ks}-\Psi_{kd}$', r'$\Psi_{ks}-\Psi_{y}$']
     titles = ['g', 'divergence', 'yks']
-    lims = [(0, 4), (-1.0e-6, 9e-6), (-1e-7, 3e-7)]
-    b1, b2 = (1.0, 1.3), (0.7, 1.4)
-
     for b1b2, group in gb:
         if b1b2 == (1.1, 1.0):
-            sims = load_sims(group.index.to_list())
-            dfs = analysis_dfs(sims, group, mask_epsilon)
+            sims = ut.load_sims(group.index.to_list())
+            dfs = analysis_dfs(sims, group, 0)
             mask = mask_check(dfs[4])
-            freq = 5
             for i, df in enumerate(dfs[:2]):
-                name = folder + fig_name(b1b2[0], b1b2[1], titles[i])
-                heatmap(df.mask(mask), labels[i], name[:-4] + 'no_lim.png',
-                        freq=freq)
+                name = save_folder + fig_name(b1b2[0], b1b2[1], titles[i])
+                ut.c2_gamma_heatmap(df.mask(mask), labels[i],
+                                    name[:-4] + 'no_lim.png', freq=5)
 
 
 def mask_check(df):
@@ -336,18 +169,20 @@ def demand_limit2(folder):
             for sig in [1.5, 2.5]:
                 p['gamma'], p['c2'], p['sigma'] = gamma, c2, sig
                 args = (gamma, c2, p['tau_y'], sig)
-                name = 'fig_demand_g{:.0f}_c2_{:.1e}_tau{:.0f}_sig{:.1f}.png'.format(
-                        *args)
+                name = 'fig_demand_g{:.0f}_c2_{:.1e}_tau{:.0f}_sig{:.1f}.png'. format(*args)
                 pd = PhaseDiagram(**p)
                 pd.overview(start, plot=True, t_end=1e5, save=folder + name)
 
 
 if __name__ == '__main__':
-    folder = '/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/Econophysics/Project_SolowModel/Paper/figures/'
-    folder = '/Users/karlnaumann/Library/Mobile Documents/com~apple~CloudDocs/Econophysics/Project_SolowModel/Test_figures/'
 
-    mask_epsilon = -2e-8
-    convergence_heatmap(folder, mask_epsilon)
+    ut.plot_settings()
+
+    folder = '/'.join(os.getcwd().split('/')[:-1] + ['Paper', 'figures/'])
+    # folder = '/'.join(os.getcwd().split('/')[:-1] + ['Test_figures/'])
+
+    mask_epsilon = 0
+    convergence_heatmap('simulations/', folder)
 
     # g_analysis(folder)
 

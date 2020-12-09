@@ -3,28 +3,10 @@ import pickle
 
 import numpy as np
 import pandas as pd
-from scipy import stats as ss
-from scipy.optimize import fmin_slsqp
+import utilities as ut
+
 from matplotlib import pyplot as plt
-from scipy.stats.mstats import winsorize
-
-
-def filename_extraction(filename: str) -> dict:
-    """ Extract parameters from filename"""
-    parts = filename[:-3].split('_')
-    params = {}
-    variables = ['tech0', 'rho', 'epsilon', 'saving0', 'dep',
-                 'tau_y', 'tau_s', 'tau_h', 'c1', 'c2',
-                 'beta1', 'beta2', 'gamma']
-    locs = [17, 18, 3, 15, 16, 12, 13, 14, 5, 7, 9, 11, 2]
-    cuts = [4, 3, 1, 3, 3, 2, 2, 2, 0, 0, 0, 0, 1]
-
-    for p in zip(variables, locs, cuts):
-        params[p[0]] = float(parts[p[1]][p[2]:])
-
-    seed = float(parts[-1])
-
-    return params, seed
+from scipy import stats as ss
 
 
 def file_category(folder: str = 'simulations', t_end: str = 't1e+07'):
@@ -32,20 +14,16 @@ def file_category(folder: str = 'simulations', t_end: str = 't1e+07'):
 
     files = [f for f in os.listdir(folder) if '.df' in f]
 
-    p, _ = filename_extraction(files[0])
+    p = ut.filename_extraction(files[0], seed=True)
     df = pd.DataFrame(index=list(range(len(files))),
-                      columns=list(p.keys()) + ['seed', 'file'])
+                      columns=list(p.keys()) + ['file'])
 
     for i, f in enumerate(files):
-        df.iloc[i, :-2], df.loc[i, 'seed'] = filename_extraction(f)
+        df.iloc[i, :-1] = ut.filename_extraction(f, seed=True)
         df.loc[i, 'file'] = folder + '/' + f
 
     df.set_index('file', inplace=True)
     return df
-
-
-def load_simulation_paths(files: list):
-    return [pickle.load(open(p, 'rb')) for p in files]
 
 
 def cycle_timing(gdp, timescale=63):
@@ -108,26 +86,36 @@ def cycle_analysis(paths):
     return dfs, pd.concat(dfs, axis=0)
 
 
-def duration_depth_histogram(analysis_df, save=''):
-    dur = winsorize(analysis_df.duration / 250)
-    n_dur, bins_dur = np.histogram(dur, bins=20)
-    n_dur = n_dur / dur.shape[0]
+def histogram(series: pd.Series, ax, win: bool = True, bins: int = 20,
+              xtxt: str = '', ytxt: str = 'Proportion'):
+    """ Function to generically plot a histogram
 
-    p2t = winsorize(analysis_df.p2t)
-    n_p2t, bins_p2t = np.histogram(p2t, bins=20)
-    n_p2t = n_p2t / p2t.shape[0]
+    Parameters
+    ----------
+    Series  :   pd.Series
+    ax  :   matplotlib axis object
+    win :   bool
+    xtxt    :   str
+    ytxt    :   str
+    """
 
-    args = dict(density=True, bins=20)
+    x = winsorize(pd.Series) if win else pd.Series
+    n, bins = np.histogram(x, bins=bins)
+    n = n / pd.Series.shape[0]
+
+    ax.hist(bins[:-1], bins, weights=n)
+    ax.set_xlabel(xtxt)
+    ax.set_ylabel(ytxt)
+
+
+def duration_depth_histogram(df: pd.DataFrame, save=''):
+
     fig, ax = plt.subplots(1, 2)
-    fig.set_size_inches(8, 4)
-    ax[0].hist(bins_dur[:-1], bins_dur, weights=n_dur)
-    # ax[0].hist(winsorize(analysis_df.duration/250), **args)
-    ax[0].set_xlabel('Duration (Years)')
-    ax[0].set_ylabel('Proportion')
-    ax[1].hist(bins_p2t[:-1], bins_p2t, weights=n_p2t)
-    # ax[1].hist(winsorize(analysis_df.p2t), **args)
-    ax[1].set_xlabel('Depth (y)')
-    ax[1].set_ylabel('Proportion')
+    fig.set_size_inches(ut.page_witdh(), 3)
+
+    histogram(df.duration / 250, ax[0], xtxt='Duration (Years)')
+    histogram(df.p2t / 250, ax[1], xtxt='Depth (Log production)')
+
     plt.tight_layout()
     if save != '':
         save = save + '.png' if '.png' not in save else save
@@ -140,13 +128,12 @@ def duration_depth_histogram(analysis_df, save=''):
 def winsorize(series, perc=[0.05, 0.95]):
     quint = series.quantile(perc)
     new = series[series > quint.min()]
-    new = new[new < quint.max()]
-    return new
+    return new[new < quint.max()]
 
 
 def business_cycle_hist_v2(info, files, period, save=''):
     """Histogram of business cycle lengths per gamnma c2 combination"""
-    paths = load_simulation_paths(files.index.to_list())
+    paths = [v for i, v in ut.load_sims(files.index).items()]
     paths = smoothing(paths, period)
     _, analysis = cycle_analysis(paths)
 
@@ -162,9 +149,8 @@ def business_cycle_hist_v2(info, files, period, save=''):
     dur = dur[dur!=np.inf]
     print(dur.values)
     n, bins, _ = ax[0].hist(dur, bins=20, density=True)
-    par = fit_truncnorm(dur.values, bins[0], bins[-2])
+    par = ss.fit_truncnorm(dur.values, bins[0], bins[-2])
 
-    print(par)
     x = np.linspace(bins[0], bins[-2], 100)
     ax[0].plot(x, ss.truncnorm.pdf(x, *par))
     ax[0].set_xlabel('Duration (Years)')
@@ -183,42 +169,23 @@ def business_cycle_hist_v2(info, files, period, save=''):
         plt.show()
 
 
-def fit_truncnorm(data, xa, xb):
-
-    def func(p, data, xa, xb):
-        return ss.truncnorm.nnlf(p, data)
-
-    def constraint(p, r, xa, xb):
-        a, b, loc, scale = p
-        return np.array([a*scale+loc-xa, b*scale + loc - xb])
-
-    mu0, sig0 = np.mean(data), np.std(data)
-    a0, b0 = (xa-mu0)/sig0, (xb-mu0)/sig0
-    p0 = [a0, b0, mu0, sig0]
-    par = fmin_slsqp(func, p0, f_eqcons=constraint, args=(data, xa, xb),
-                     iprint=False, iter=1000)
-
-    return par
-
 def business_cycle_histograms(info, files, period, winsorize=False, save=''):
     """Histogram of business cycle lengths per gamnma c2 combination"""
-    paths = load_simulation_paths(files.index.to_list())
+    paths = [v for i, v in ut.load_sims(files.index).items()]
     paths = smoothing(paths, period)
     _, analysis = cycle_analysis(paths)
     duration_depth_histogram(analysis, save=save)
 
 
-def smoothing(paths, period):
-    """Smooth the timeseries with a moving average"""
-    movmean = lambda x: x.rolling(period, min_periods=period).mean()
-    paths = [movmean(df) for df in paths]
-    return paths
+def smoothing(paths: list, period: int):
+    """Smooth the timeseries with a moving average across p periods"""
+    return [df.rolling(period, min_periods=period).mean() for df in paths]
 
 
 def plot_all_timeseries(series):
     for i, v in enumerate(series):
         info, files = v
-        paths = load_simulation_paths(files.index.to_list())
+        paths = [v for i, v in ut.load_sims(files.index).items()]
         paths = [df.rolling(T, min_periods=T).mean() for df in paths]
         for i, df in enumerate(paths):
             save = fig_name(FOLDER_GENERAL, files.iloc[i, :], 'timeseries')
@@ -320,6 +287,8 @@ def fig_name(folder, info, kind):
 
 if __name__ == '__main__':
 
+    ut.plot_settings()
+
     plt.rcParams['axes.prop_cycle'] = plt.cycler("color", plt.cm.tab10.colors)
 
     # Folders
@@ -327,7 +296,7 @@ if __name__ == '__main__':
     FOLDER_GENERAL = '/Users/karlnaumann/Desktop/Solow_Model/paths_general/'
     T = 2000
 
-    file_df = file_category(folder=FOLDER_GENERAL)
+    file_df = ut.parse_directory(folder=FOLDER_GENERAL)
     series = file_df.groupby(['c2', 'gamma'])
 
     for i, v in enumerate(series):
@@ -335,41 +304,3 @@ if __name__ == '__main__':
         info = pd.Series(info, index=['c2', 'gamma'])
         name = fig_name(FOLDER_GENERAL, info, 'histograms')
         business_cycle_hist_v2(info, files, T)
-
-    # business_cycle_histograms(FOLDER_GENERAL, T, winsorize = True)
-
-    # plot_all_timeseries(series)
-
-    """"""
-
-    """
-    FOLDER = 'paths2'
-    T = 250 # 3 months (3)
-
-    file_df = file_category(folder=FOLDER)
-    series = file_df.groupby(['c2', 'gamma'])
-
-    fig, ax = plt.subplots(len(series), 1)
-
-    for i, v in enumerate(series):
-        info, files = v
-        paths = load_simulation_paths(files.index.to_list())
-        paths = [df.rolling(T, min_periods=T).mean() for df in paths]
-        recessions = [cycle_timing(df.y, timescale=63) for df in paths]
-        durations = pd.Series(cycle_durations(recessions, timescale=T))
-
-        bounds = durations.quantile([0.05, 0.95])
-        durations = durations[durations>bounds.min()]
-        durations = durations[durations<bounds.max()]
-
-        if len(series)>1:
-            ax[i].hist(durations, bins=60)
-            ax[i].set_xlabel('Duration (Years)')
-            ax[i].set_title('c2 {:.1e} gamma {:.1e}'.format(*info))
-        else:
-            ax.hist(durations, bins=60)
-            ax.set_xlabel('Duration (Years)')
-            ax.set_title('c2 {:.1e} gamma {:.1e}'.format(*info))
-    plt.tight_layout()
-    plt.show()
-    """
