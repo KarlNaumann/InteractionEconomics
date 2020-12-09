@@ -1,41 +1,13 @@
 import os
 
-import matplotlib as mpl
+
 import numpy as np
 import pandas as pd
 import pandas_datareader.data as web
+import utilities as ut
 
 from cycler import cycler
 from matplotlib import pyplot as plt
-
-PAGE_WIDTH = 5.95114
-
-# Utility functions
-
-
-def plot_settings():
-    """ Set the parameters for plotting such that they are consistent across
-    the different models
-    """
-    mpl.rc('figure', figsize=(PAGE_WIDTH, 6))
-
-    # General Font settings
-    x = r'\usepackage[bitstream-charter, greekfamily=default]{mathdesign}'
-    mpl.rc('text.latex', preamble=x)
-    mpl.rc('text', usetex=True)
-    mpl.rc('font', **{'family': 'serif'})
-
-    # Font sizes
-    base = 12
-    mpl.rc('axes', titlesize=base)
-    mpl.rc('legend', fontsize=base-2)
-    mpl.rc('axes', labelsize=base-2)
-
-    # Axis styles
-    cycles = cycler('linestyle', ['-', '--', ':', '-.'])
-    cmap = mpl.cm.get_cmap('tab10')
-    cycles += cycler('color', cmap([0.05, 0.15, 0.25, 0.35]))
-    mpl.rc('axes', prop_cycle=cycles)
 
 
 def load_recession_indicators(startdate: str):
@@ -142,44 +114,6 @@ def autocorrelation_function(x: pd.Series, maxlag: int):
     return z
 
 
-def time_series_plot(df: pd.DataFrame, ax, xtxt: str = '', ytxt: str = ''):
-    """ Generate a timeseries graph on the axes for each column in the
-    given dataframe
-
-    Parameters
-    ----------
-    df  :   pd.DataFrame
-    ax  :   matplotlib axes object
-
-    Returns
-    ----------
-    ax  :   matplotlib axes object
-    """
-
-    for series in df.columns:
-        ax.plot(df.loc[:, series], label=series)
-
-    if len(df.columns) > 1:
-        ax.legend(ncol=len(df.columns))
-    if xtxt == '':
-        try:
-            ax.set_xlabel(''.join(df.index.names))
-        except KeyError:
-            try:
-                ax.set_xlabel(df.index.name)
-            except KeyError:
-                pass
-    else:
-        ax.set_xlabel(xtxt)
-
-    ax.set_ylabel(ytxt)
-
-    ax.set_xlim(df.index[0], df.index[-1])
-    ax.minorticks_on()
-
-    return ax
-
-
 def autocorrelation_plot(df: pd.DataFrame, max_lag: int, ax, xtxt: str = '',
                          ytxt: str = ''):
     """ Generate a timeseries graph on the axes for each column in the
@@ -226,10 +160,10 @@ def autocorrelation_plot(df: pd.DataFrame, max_lag: int, ax, xtxt: str = '',
 
 def timeseries_plot(data: pd.DataFrame, rec: bool = True, save: str = ''):
 
-    fig = plt.figure(figsize=(PAGE_WIDTH, 3))
+    fig = plt.figure(figsize=(ut.page_witdh(), 3))
     ax = fig.add_subplot()
     labels = dict(ytxt=r'Quarterly Growth (\%)', xtxt='Time')
-    time_series_plot(data, ax, **labels)
+    ut.time_series_plot(data, ax, **labels)
 
     if rec:
         rec = load_recession_indicators(data.index[0].strftime('%Y-%m-%d'))
@@ -245,7 +179,7 @@ def timeseries_plot(data: pd.DataFrame, rec: bool = True, save: str = ''):
 
 if __name__ == '__main__':
 
-    plot_settings()
+    ut.plot_settings()
 
     timeseries = {
         'GPDIC1': 'Investment',
