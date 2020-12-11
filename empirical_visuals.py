@@ -1,46 +1,35 @@
 import os
 
-
 import numpy as np
 import pandas as pd
 import pandas_datareader.data as web
 import utilities as ut
 
-from cycler import cycler
 from matplotlib import pyplot as plt
+from statsmodels.tsa.filters.hp_filter import hpfilter
 
 
-def load_recession_indicators(startdate: str):
-    """ Load the recession boolean series
-
-    Parameters
-    ----------
-    startdate  :   str
-
-    Returns
-    ----------
-    data    :   pd.Series
-    """
-    return web.DataReader('USREC', 'fred', startdate)
-
-
-def recession_shading(ds: pd.Series, ax, end_date):
+def recession_shading(ax, start_date, end_date):
     """returns list of (startdate,enddate) tuples for recessions"""
+
+    start = start_date.strftime('%Y-%m-%d')
+    indicator = web.DataReader('USREC', 'fred', start)
+
     start, end = [], []
     # Check to see if we start in recession
-    if ds.iloc[0, 0] == 1:
-        start.extend([ds.index[0]])
+    if indicator.iloc[0, 0] == 1:
+        start.extend([indicator.index[0]])
     # add recession start and end dates
-    for i in range(1, ds.shape[0]):
-        a = ds.iloc[i-1, 0]
-        b = ds.iloc[i, 0]
+    for i in range(1, indicator.shape[0]):
+        a = indicator.iloc[i-1, 0]
+        b = indicator.iloc[i, 0]
         if a == 0 and b == 1:
-            start.extend([ds.index[i]])
+            start.extend([indicator.index[i]])
         elif a == 1 and b == 0:
-            end.extend([ds.index[i-1]])
+            end.extend([indicator.index[i-1]])
     # if there is a recession at the end, add the last date
     if len(start) > len(end):
-        end.extend([ds.index[-1]])
+        end.extend([indicator.index[-1]])
 
     for j in zip(start, end):
         if j[0] < end_date and j[1] < end_date:
@@ -58,116 +47,101 @@ def load_fred_data(tickers: list, start: str) -> dict:
 
     Returns
     ----------
-    data    :   dict
-        dictionary of pd.DataFrame indexed by dataseries name
+    data    :   pd.DataFrame
     """
-    return {t: web.DataReader(t, 'fred', start) for t in tickers}
+    data = web.DataReader(tickers[0], 'fred', start)
+    try:
+        # If more dataframes - merge onto the first for matching dates
+        for t in tickers[1:]:
+            df = web.DataReader(t, 'fred', start)
+            data = data.merge(df, left_index=True, right_index=True)
+    except KeyError:
+        pass
+
+    return data
 
 
-def merge_datasets(data: dict, how='inner'):
-    """Merge the data into one dataframe
-    Parameters
-    ----------
-    data  :   dict
-
-    Returns
-    ----------
-    df    :   pd.DataFrame
-    """
-    datasets = list(data.keys())
-    df = data[datasets[0]]
-    for i in datasets[1:]:
-        df = df.merge(data[i], left_index=True, right_index=True)
-    return df
-
-
-def autocorrelation(x: pd.Series, lag: int) -> float:
-    """ Autocorrelation function for a specific lag
+def oecd_quarterly_gdp(path: str) -> pd.DataFrame:
+    """ Read the downloaded OECD dataset on quarterly GDP
 
     Parameters
     ----------
-    x   :   pd.Series
-    lag :   int
+    path    :   str
+        path to the file, normally named 'data/QNA_10122020122218518.csv'
 
     Returns
     ----------
-    autocorr    :   float
+    data    :   pd.DataFrame
+        indexed by date, columns are countries
     """
-    x_ = x - x.mean()
-    return (x_ * x_.shift(-lag)).mean() / x_.var()
+    data = pd.read_csv(path, usecols=[1, 8, 16])
+    data = data.pivot(index='TIME', columns='Country')
+    data.columns = data.columns.get_level_values(1)
+    data.index = pd.PeriodIndex(data.index, freq='Q').to_timestamp()
+    return data
 
 
-def autocorrelation_function(x: pd.Series, maxlag: int):
-    """ Autocorrelation function up to a maximum lag
+def oecd_industrial_production(path: str) -> pd.DataFrame:
+    """ Read the downloaded OECD dataset on monthly industrial production
 
     Parameters
     ----------
-    x   :   pd.Series
-    lag :   int
+    path    :   str
+        path to the file, normally named 'data/DP_LIVE_10122020161421662.csv'
 
     Returns
     ----------
-    autocorr    :   float
+    data    :   pd.DataFrame
+        indexed by date, columns are countries
     """
-    z = np.array([autocorrelation(x, i) for i in range(1, maxlag+1)])
-    x = pd.DataFrame(z, index=np.arange(len(z)), columns=['Autocorrelation'])
-    return z
+    data = pd.read_csv('data/DP_LIVE_10122020161421662.csv', usecols=[0, 5, 6])
+    data = data.pivot(index='TIME', columns='LOCATION')
+    data.columns = data.columns.get_level_values(1)
+    data.index = pd.to_datetime(data.index, format='%Y-%m')
+    data = data.astype(float).dropna(axis=0)
+    return data
 
 
-def autocorrelation_plot(df: pd.DataFrame, max_lag: int, ax, xtxt: str = '',
-                         ytxt: str = ''):
-    """ Generate a timeseries graph on the axes for each column in the
-    given dataframe
+def hp_filter(df: pd.DataFrame, lam: int = 1600):
+    """ Apply the Hodrick-Prescott filter to each series in the dataframe and
+    return the result as a dataframe of cycles and a dataframe of trends
 
     Parameters
     ----------
     df  :   pd.DataFrame
-    ax  :   matplotlib axes object
+    lam     :   int
 
     Returns
     ----------
-    ax  :   matplotlib axes object
+    cycles  :   pd.DataFrame
+    trends  :   pd.DataFrame
     """
-
-    positions = np.arange(max_lag)
-    width = 0.25
-
-    for i, series in enumerate(df.columns):
-        autocorr = autocorrelation_function(df.loc[:, series], max_lag)
-        pos = [p + i*width for p in positions]
-        ax.bar(pos, autocorr, label=series, width=width)
-
-    if len(df.columns) > 1:
-        ax.legend()
-
-    if len(df.columns) > 1:
-        ax.legend()
-    if xtxt == '':
-        try:
-            ax.set_xlabel(''.join(df.index.names))
-        except KeyError:
-            try:
-                ax.set_xlabel(df.index.name)
-            except KeyError:
-                pass
-    else:
-        ax.set_xlabel(xtxt)
-
-    ax.set_ylabel(ytxt)
-
-    return ax
+    hp = [hpfilter(df.loc[:,series], lamb=lam) for series in df.columns]
+    cycles = pd.concat([v[0] for v in hp], axis=1)
+    cycles.columns = df.columns
+    trends = pd.concat([v[1] for v in hp], axis=1)
+    trends.columns = df.columns
+    return cycles, trends
 
 
-def timeseries_plot(data: pd.DataFrame, rec: bool = True, save: str = ''):
+def timeseries_plot(data: pd.DataFrame, recessions: bool = True,
+                    save: str = '', ytxt: str = r'Quarterly Growth (\%)'):
+    """ Generic time-series plot using the predefined timeseries setting
+    from utilities and with an option to include U.S. Recession shading
 
-    fig = plt.figure(figsize=(ut.page_witdh(), 3))
+    Parameters
+    ----------
+    data    :   pd.DataFrame
+    recessions  :   bool
+    save    :   str
+    ytxt    :   str
+    """
+    fig = plt.figure(figsize=(ut.page_width(), 3))
     ax = fig.add_subplot()
-    labels = dict(ytxt=r'Quarterly Growth (\%)', xtxt='Time')
-    ut.time_series_plot(data, ax, **labels)
+    ut.time_series_plot(data, ax, ytxt=ytxt, xtxt='Time')
 
-    if rec:
-        rec = load_recession_indicators(data.index[0].strftime('%Y-%m-%d'))
-        recession_shading(rec, ax, data.index[-1])
+    if recessions:
+        recession_shading(ax, data.index[0], data.index[-1])
 
     if save == '':
         plt.show()
@@ -179,20 +153,35 @@ def timeseries_plot(data: pd.DataFrame, rec: bool = True, save: str = ''):
 
 if __name__ == '__main__':
 
-    ut.plot_settings()
-
-    timeseries = {
-        'GPDIC1': 'Investment',
-        'PCECC96': 'Consumption',
-        'GCEC1': 'Government',
-    }
-
-    data = load_fred_data(list(timeseries.keys()), start='1980-01-01')
-    data = merge_datasets(data)
-    growth_rates = 100 * data.pct_change().iloc[1:, :]
-    growth_rates.columns = [timeseries[i] for i in growth_rates.columns]
+    # ut.plot_settings(cycles=False)
 
     folder = os.getcwd().split('/')
-    save = '/'.join(folder[:-1] + ['Paper', 'figures', 'fig_empirics.png'])
-    print("Fig location: ", save)
-    timeseries_plot(growth_rates, rec=True, save=save)
+    folder = '/'.join(folder[:-1] + ['Paper', 'figures/'])
+
+    # GDP Quarterly data and IP Monthly data
+
+    data_gdp = oecd_quarterly_gdp('data/QNA_10122020122218518.csv')
+    data_gdp = data_gdp.loc[:, ['Germany','France','United States']]
+    data_ip = oecd_industrial_production('data/DP_LIVE_10122020161421662.csv')
+    data_ip = data_ip.loc[:, ['DEU','FRA','USA']]
+
+    # Y-O-Y percentage growth rates
+
+    timeseries_plot(data_gdp.pct_change(4),
+                   save=folder+'fig_emp_gdp_yoy.png', ytxt=r'GDP y-o-y')
+
+    timeseries_plot(data_ip.pct_change(12),
+                   save=folder+'fig_emp_ip_yoy.png', ytxt=r'IP y-o-y')
+
+    # Hodrick-Prescott Filter
+
+    cycle, _ = hp_filter(data_gdp, lam=1600)
+    timeseries_plot(cycle, recessions=False, ytxt=r'GDP HP Cycle',
+                    save=folder+'fig_emp_gdp_hpfilter.png')
+
+    cycle, _ = hp_filter(data_ip, lam=129600)
+    timeseries_plot(cycle, recessions=False, ytxt=r'IP HP Cycle',
+                    save=folder+'fig_emp_ip_hpfilter.png')
+
+    # Bandpass Filter approach on log-growth rates
+    # Can be done with from statsmodels.tsa.filters.bk_filter import bkfilter
