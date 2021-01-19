@@ -2,12 +2,10 @@
 /.ipynb_checkpoints/
 /__pycache__/
 
-/data/
-/asymptotic_simulations/
-/asymptotics/
+/data_*/
+/simulations/
+/venv/
+/env/
 
-/paths/
-/paths_demand/
-/paths2/
 
 *.ipynb
