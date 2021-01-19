@@ -28,10 +28,8 @@ def filename_extraction(filename: str, seed: bool = False) -> dict:
     parameters  :   dict
     """
     parts = filename[:-3].split('_')
-
     names = ['tech0', 'rho', 'epsilon', 'saving0', 'dep', 'tau_y', 'tau_s',
              'tau_h', 'c1', 'c2', 'beta1', 'beta2', 'gamma']
-
     if not seed:
         names.extend(['t_end'])
         loc = [17, 18, 3, 15, 16, 12, 13, 14, 5, 7, 9, 11, 2, 1]
@@ -43,8 +41,21 @@ def filename_extraction(filename: str, seed: bool = False) -> dict:
 
     return {p[0]: float(parts[p[1]][p[2]:]) for p in zip(names, loc, cut)}
 
+def listdir(path):
+    """ List a directory contents, ignoring hidden files
 
-def parse_directory(folder: str, criteria: list = ['.df']):
+    Parameters
+    ----------
+    path  :   str
+
+    Returns
+    -------
+    files   :   list
+    """
+    return [f for f in os.listdir(path) if not f.startswith('.')]
+
+
+def parse_directory(folder: str, criteria: list = ['.df'], seed: bool = False):
     """ Combine into dataframe, indexed by filename, the various parameters for
     the simulations that have been run
 
@@ -59,8 +70,8 @@ def parse_directory(folder: str, criteria: list = ['.df']):
     df  :   pd.DataFrame
     """
     # Filenames that contain all the criteria information
-    files = [f for f in os.listdir(folder) if all([i in f for i in criteria])]
-    data = {f: filename_extraction(f) for f in files}
+    files = [f for f in listdir(folder) if all([i in f for i in criteria])]
+    data = {f: filename_extraction(f, seed) for f in files}
     df = pd.DataFrame(data).T
     df.index = [folder + '/' + i for i in df.index]
     return df
@@ -169,9 +180,7 @@ def c2_gamma_heatmap(df: pd.DataFrame, label: str, save: str = '',
 
     # plt.tight_layout()
     if save != '':
-        if '.png' not in save:
-            save += '.png'
-        plt.savefig(save, bbox_inches='tight')
+        plt.savefig(save, bbox_inches='tight', format='eps', )
     if show:
         plt.show()
     plt.close()

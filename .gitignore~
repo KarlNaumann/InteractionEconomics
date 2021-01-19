@@ -1,0 +1,11 @@
+/.idea/
+/.ipynb_checkpoints/
+/__pycache__/
+
+/data_*/
+/simulations/
+/venv/
+/env/
+
+
+*.ipynb

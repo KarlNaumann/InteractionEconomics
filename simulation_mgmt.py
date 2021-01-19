@@ -113,7 +113,7 @@ def worker_demand_limit(args):
             sm.phase_diagram()
         # Save
         p = dict(args[0])
-        p['saving0'], p['dep'], p['h_h'] = 0,0,0
+        p['saving0'], p['dep'], p['h_h'] = 0, 0, 0
         file = open(name_gen(p, t_end, folder=folder, seed=seed), 'wb')
         pickle.dump(path, file)
         # Close
@@ -127,19 +127,22 @@ def pool_mgmt(worker, tasks):
     print("Starting\t{} processes on {} CPUs at {}".format(*arg))
 
     with get_context("spawn").Pool() as pool:
-        for _ in tqdm.tqdm(pool.imap_unordered(worker, tasks), total=len(tasks), position=0, leave=True):
+        for _ in tqdm.tqdm(pool.imap_unordered(worker, tasks), total=len(tasks),
+                           position=0, leave=True):
             pass
 
 
 # SIMULATION HELPERS
-def task_creator(variations: dict, folder: str, seeds: list, t_end: float, start: np.ndarray, kind: str = 'asymptotic', xi_args: dict = dict(decay=0.2, diffusion=2.0)):
+def task_creator(variations: dict, folder: str, seeds: list, t_end: float,
+                 start: np.ndarray, kind: str = 'asymptotic',
+                 xi_args: dict = dict(decay=0.2, diffusion=2.0)):
     # Set up the simulation batch parameters
     params = dict(tech0=1, rho=1 / 3, epsilon=1e-5, tau_y=1000, dep=0.0002,
                   tau_h=25, tau_s=250, c1=1, c2=3.1e-4, gamma=2000, beta1=1.1,
                   beta2=1.0, saving0=0.15, h_h=10)
 
     # Set up the task list generation
-    files = [f for f in os.listdir(folder) if '.df' in f]
+    files = [f for f in os.listdir(folder) if '.df' in f if not f.startswith('.')]
     tasks = []
     var_p = list(variations.keys())
 
@@ -174,8 +177,9 @@ def task_creator(variations: dict, folder: str, seeds: list, t_end: float, start
     elif kind == 'demand_limit':
         exist = [extract_info(f, 'path') for f in files]
         params2 = dict(tech0=1, rho=1 / 3, epsilon=1e-5, tau_y=1000,
-                  tau_h=25, tau_s=250, c1=1, c2=3.1e-4, gamma=2000, beta1=1.1,
-                  beta2=1.0)
+                       tau_h=25, tau_s=250, c1=1, c2=3.1e-4, gamma=2000,
+                       beta1=1.1,
+                       beta2=1.0)
         start = np.array([1, 0, 9, 0, 0, 0])
         start[0] = np.exp(start[1])
         # Iterate through all combinations
@@ -198,9 +202,9 @@ def task_creator(variations: dict, folder: str, seeds: list, t_end: float, start
 def case_b1_paths():
     # Interesting Variations
     b1_variations = dict(
-            gamma=np.arange(1000, 4000, 500),
-            c2=np.arange(1e-4, 5e-4, 5e-5),
-            beta1=[1.1, 1.2, 1.3])
+        gamma=np.arange(1000, 4000, 500),
+        c2=np.arange(1e-4, 5e-4, 5e-5),
+        beta1=[1.1, 1.2, 1.3])
 
     # Set up all of the combinations to use
     tasks = task_creator(b1_variations, folder='simulations/', seeds=[1],
@@ -213,9 +217,9 @@ def case_b1_paths():
 def case_b2_paths():
     # Interesting Variations
     b2_variations = dict(
-            gamma=np.arange(1000, 4000, 500),
-            c2=np.arange(1e-4, 5e-4, 5e-5),
-            beta2=[1.1, 1.2, 1.3])
+        gamma=np.arange(1000, 4000, 500),
+        c2=np.arange(1e-4, 5e-4, 5e-5),
+        beta2=[1.1, 1.2, 1.3])
 
     # Set up all of the combinations to use
     tasks = task_creator(b2_variations, folder='simulations/', seeds=[1],
@@ -228,9 +232,9 @@ def case_b2_paths():
 def case_c1_paths():
     # Interesting Variations
     c1_variations = dict(
-            gamma=np.arange(1000, 4000, 500),
-            c2=np.arange(1e-4, 5e-4, 5e-5),
-            c1=[0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3],
+        gamma=np.arange(1000, 4000, 500),
+        c2=np.arange(1e-4, 5e-4, 5e-5),
+        c1=[0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3],
     )
 
     # Set up all of the combinations to use
@@ -244,9 +248,9 @@ def case_c1_paths():
 def case_b1_asymp():
     # Interesting Variations
     b1_variations = dict(
-            gamma=np.arange(1000, 4000, 250),
-            c2=np.arange(1e-4, 5e-4, 2e-5),
-            beta1=[1.1, 1.2, 1.3])
+        gamma=np.arange(1000, 4000, 250),
+        c2=np.arange(1e-4, 5e-4, 2e-5),
+        beta1=[1.1, 1.2, 1.3])
 
     # Set up all of the combinations to use
     seeds = list(range(5))
@@ -260,9 +264,9 @@ def case_b1_asymp():
 def case_b2_asymp():
     # Interesting Variations
     b2_variations = dict(
-            gamma=np.arange(1000, 4000, 250),
-            c2=np.arange(1e-4, 5e-4, 2e-5),
-            beta2=[0.5, 0.6, 0.7, 0.8, 0.9])
+        gamma=np.arange(1000, 4000, 250),
+        c2=np.arange(1e-4, 5e-4, 2e-5),
+        beta2=[0.5, 0.6, 0.7, 0.8, 0.9])
 
     # Set up all of the combinations to use
     seeds = list(range(5))
@@ -276,9 +280,9 @@ def case_b2_asymp():
 def case_finegrain_asymp():
     # Interesting Variations
     variations = dict(
-            gamma=np.arange(1000, 6000, 100),
-            c2=np.arange(1e-4, 6e-4, 1e-5))
-    
+        gamma=np.arange(1000, 6000, 100),
+        c2=np.arange(1e-4, 6e-4, 1e-5))
+
     print("Gamma: ", len(variations['gamma']), " variations")
     print("C2: ", len(variations['c2']), " variations")
 
@@ -298,15 +302,16 @@ def case_finegrain_asymp():
 def case_paths():
     # Interesting Variations
     b1_variations = dict(
-            gamma= [6000],
-            c2 = [3e-4])
+        gamma=[7000],
+        c2=[2.1e-4])
 
-    seeds = list(range(1,11))
+    seeds = list(range(1, 51))
 
     # Set up all of the combinations to use
-    tasks = task_creator(b1_variations, folder='paths/', seeds=seeds,
+    folder = 'data_simulations_paths_general/'
+    tasks = task_creator(b1_variations, folder=folder, seeds=seeds,
                          t_end=1e6, start=init_val(), kind='path',
-                         xi_args = dict(decay=0.2, diffusion=1.0))
+                         xi_args=dict(decay=0.2, diffusion=1.0))
 
     # Run the multiprocessed simulations
     pool_mgmt(worker_path, tasks)
@@ -314,15 +319,20 @@ def case_paths():
 
 def case_path_test():
     # Interesting Variations
-    variations = dict(gamma= [4000], c2 = [2.5e-4])
+    variations = dict(gamma=[4000], c2=[2.5e-4],
+                      tau_h=[25], tau_s=[100], tau_y=[500],)
 
-    seeds = list(range(1,31))
-    folder = '/Users/karlnaumann/Desktop/Solow_Model/paths_general/'
+    params = dict(tech0=1, rho=1 / 3, epsilon=1e-5, tau_y=1000, tau_h=25,
+                  tau_s=250, c1=1, c2=2.5e-4, gamma=4000, beta1=1.1,
+                  beta2=1.0, s0=-0.05)
+
+    seeds = list(range(1, 10))
+    folder = 'data_simulations_paths_general/'
 
     # Set up all of the combinations to use
     tasks = task_creator(variations, folder=folder, seeds=seeds,
                          t_end=1e6, start=init_val(), kind='path',
-                         xi_args = dict(decay=0.2, diffusion=2.5))
+                         xi_args=dict(decay=0.2, diffusion=1.0))
 
     # Run the multiprocessed simulations
     pool_mgmt(worker_path, tasks)
@@ -330,16 +340,15 @@ def case_path_test():
 
 def case_demand_test():
     # Interesting Variations
-    variations = dict(gamma= [6000], c2 = [2.5e-4])
+    variations = dict(gamma=[6000], c2=[2.5e-4])
 
-    seeds = list(range(1,11))#[54]
+    seeds = list(range(1, 11))  # [54]
     folder = '/Users/karlnaumann/Desktop/Solow_Model/paths_demand/'
-
 
     # Set up all of the combinations to use
     tasks = task_creator(variations, folder=folder, seeds=seeds,
                          t_end=1e6, start=init_val(), kind='demand_limit',
-                         xi_args = dict(decay=0.2, diffusion=2.5))
+                         xi_args=dict(decay=0.2, diffusion=2.5))
 
     # Run the multiprocessed simulations
     for args in tasks:
@@ -404,11 +413,6 @@ def fig_name(folder, info, kind):
 
     return '{}fig_{}_{}.png'.format(folder, kind, ''.join(struct))
 
+
 if __name__ == '__main__':
     globals()[sys.argv[1]]()
-
-
-
-
-
-

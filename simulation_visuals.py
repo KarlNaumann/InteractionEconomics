@@ -117,7 +117,7 @@ def convergence_heatmap(data_folder, save_folder):
             for i, df in enumerate(dfs[:2]):
                 name = save_folder + fig_name(b1b2[0], b1b2[1], titles[i])
                 ut.c2_gamma_heatmap(df.mask(mask), labels[i],
-                                    name[:-4] + 'no_lim.png', freq=5)
+                                    name[:-4] + 'no_lim.eps', freq=5)
 
 
 def mask_check(df):
@@ -145,7 +145,7 @@ def demand_limit_graphs(folder):
                 params['c2'] = c2
                 xi_args['diffusion'] = sig
                 args = (gamma, c2, params['tau_y'], sig)
-                name = 'fig_demand_g{:.0f}_c2_{:.1e}_tau{:.0f}_sig{:.1f}.png'.format(
+                name = 'fig_demand_g{:.0f}_c2_{:.1e}_tau{:.0f}_sig{:.1f}.eps'.format(
                         *args)
                 ds = DemandSolow(params, xi_args)
                 ds.simulate(start, t_end=2e5, interval=0.1, seed=40, xi=True)
@@ -178,7 +178,7 @@ if __name__ == '__main__':
 
     ut.plot_settings()
 
-    folder = '/'.join(os.getcwd().split('/')[:-1] + ['Paper', 'figures/'])
+    folder = '/'.join(os.getcwd().split('/')[:-1] + ['figures/'])
     # folder = '/'.join(os.getcwd().split('/')[:-1] + ['Test_figures/'])
 
     mask_epsilon = 0

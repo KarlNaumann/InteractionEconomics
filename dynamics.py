@@ -86,7 +86,7 @@ def cycle_analysis(paths):
     return dfs, pd.concat(dfs, axis=0)
 
 
-def histogram(series: pd.Series, ax, win: bool = True, bins: int = 20,
+def histogram(series: pd.Series, ax, win: bool = False, bins: int = 20,
               xtxt: str = '', ytxt: str = 'Proportion'):
     """ Function to generically plot a histogram
 
@@ -99,27 +99,24 @@ def histogram(series: pd.Series, ax, win: bool = True, bins: int = 20,
     ytxt    :   str
     """
 
-    x = winsorize(pd.Series) if win else pd.Series
+    x = winsorize(series) if win else series
     n, bins = np.histogram(x, bins=bins)
-    n = n / pd.Series.shape[0]
+    n = n / series.shape[0]
 
     ax.hist(bins[:-1], bins, weights=n)
     ax.set_xlabel(xtxt)
     ax.set_ylabel(ytxt)
 
 
-def duration_depth_histogram(df: pd.DataFrame, save=''):
+def duration_histogram(df: pd.DataFrame, save=''):
 
-    fig, ax = plt.subplots(1, 2)
+    fig, ax = plt.subplots(1, 1)
     fig.set_size_inches(ut.page_witdh(), 3)
-
-    histogram(df.duration / 250, ax[0], xtxt='Duration (Years)')
-    histogram(df.p2t / 250, ax[1], xtxt='Depth (Log production)')
-
+    x = winsorize(df.duration, perc=[0, 0.95])
+    histogram(x / 250, ax, xtxt='Duration (Years)')
     plt.tight_layout()
     if save != '':
-        save = save + '.png' if '.png' not in save else save
-        plt.savefig(save, bbox_inches='tight')
+        plt.savefig(save, bbox_inches='tight', format='png')
         plt.close()
     else:
         plt.show()
@@ -156,13 +153,12 @@ def business_cycle_hist_v2(info, files, period, save=''):
     ax[0].set_xlabel('Duration (Years)')
     ax[0].set_ylabel('Proportion')
 
-    ax[1].hist(bins_p2t[:-1], bins_p2t, weights=n_p2t)
+    #ax[1].hist(bins_p2t[:-1], bins_p2t, weights=n_p2t)
     # ax[1].hist(winsorize(analysis_df.p2t), **args)
-    ax[1].set_xlabel('Depth (y)')
-    ax[1].set_ylabel('Proportion')
+    #ax[1].set_xlabel('Depth (y)')
+    #ax[1].set_ylabel('Proportion')
     plt.tight_layout()
     if save != '':
-        save = save + '.png' if '.png' not in save else save
         plt.savefig(save, bbox_inches='tight')
         plt.close()
     else:
@@ -174,7 +170,7 @@ def business_cycle_histograms(info, files, period, winsorize=False, save=''):
     paths = [v for i, v in ut.load_sims(files.index).items()]
     paths = smoothing(paths, period)
     _, analysis = cycle_analysis(paths)
-    duration_depth_histogram(analysis, save=save)
+    duration_histogram(analysis, save=save)
 
 
 def smoothing(paths: list, period: int):
@@ -274,7 +270,10 @@ def timseries_plot(df, info, stop=int(1e6), save=''):
 def fig_name(folder, info, kind):
     struct = [
         'g_{:.0f}_'.format(info.gamma),
-        'c2_{:.0f}_'.format(info.c2 * 1e5)
+        'c2_{:.0f}_'.format(info.c2 * 1e5),
+        'tauh_{:.0f}_'.format(info.tau_h),
+        'taus_{:.0f}_'.format(info.tau_s),
+        'tauy_{:.0f}_'.format(info.tau_y)
     ]
 
     try:
@@ -282,7 +281,7 @@ def fig_name(folder, info, kind):
     except AttributeError:
         pass
 
-    return '{}fig_{}_{}.png'.format(folder, kind, ''.join(struct))
+    return '{}fig_{}_{}'.format(folder, kind, ''.join(struct))
 
 
 if __name__ == '__main__':
