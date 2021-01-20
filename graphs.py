@@ -362,7 +362,7 @@ def capital_ratio_histograms(series, var:list, period:int=2000, bins:int=20, fol
         name = fig_name(folder, info, 'histograms')
         paths = load_paths(files.index, period)
         df = np.vstack([(p.kd/p.ks).dropna().values[:, np.newaxis] for p in paths])
-        histogram(df, save=save+'.eps', bins=bins, xtxt=r'$k_d/k_s$')
+        histogram(df, save=name+'.eps', bins=bins, xtxt=r'$k_d/k_s$')
 
 
 def plot_all_timeseries(series, vars:list, period:int=2000, folder:str=''):
