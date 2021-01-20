@@ -302,16 +302,16 @@ def case_finegrain_asymp():
 def case_paths():
     # Interesting Variations
     b1_variations = dict(
-        gamma=[7000],
-        c2=[2.1e-4])
+        gamma=[4000],
+        c2=[2.5e-4])
 
-    seeds = list(range(1, 51))
+    seeds = list(range(1, 60))
 
     # Set up all of the combinations to use
-    folder = 'data_simulations_paths_general/'
+    folder = 'data_simulations_paths_general_sig2.0/'
     tasks = task_creator(b1_variations, folder=folder, seeds=seeds,
                          t_end=1e6, start=init_val(), kind='path',
-                         xi_args=dict(decay=0.2, diffusion=1.0))
+                         xi_args=dict(decay=0.2, diffusion=2.0))
 
     # Run the multiprocessed simulations
     pool_mgmt(worker_path, tasks)

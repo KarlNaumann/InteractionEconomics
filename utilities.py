@@ -11,7 +11,7 @@ from matplotlib.cm import get_cmap
 from seaborn import heatmap as sns_heatmap
 
 
-def page_witdh():
+def page_width():
     return 5.95114
 
 
@@ -40,6 +40,7 @@ def filename_extraction(filename: str, seed: bool = False) -> dict:
         cut = [4, 3, 1, 3, 3, 2, 2, 2, 0, 0, 0, 0, 1, 0]
 
     return {p[0]: float(parts[p[1]][p[2]:]) for p in zip(names, loc, cut)}
+
 
 def listdir(path):
     """ List a directory contents, ignoring hidden files
@@ -102,7 +103,7 @@ def plot_settings():
     """ Set the parameters for plotting such that they are consistent across
     the different models
     """
-    rc('figure', figsize=(page_witdh(), 6))
+    rc('figure', figsize=(page_width(), 6))
 
     # General Font settings
     x = r'\usepackage[bitstream-charter, greekfamily=default]{mathdesign}'
@@ -118,8 +119,8 @@ def plot_settings():
 
     # Axis styles
     cycles = cycler('linestyle', ['-', '--', ':', '-.'])
-    cmap = get_cmap('tab10')
-    cycles += cycler('color', cmap([0.05, 0.15, 0.25, 0.35]))
+    cmap = get_cmap('gray')
+    cycles += cycler('color', cmap(list(np.linspace(0.1,0.9,4))))
     rc('axes', prop_cycle=cycles)
 
 
@@ -148,12 +149,12 @@ def c2_gamma_heatmap(df: pd.DataFrame, label: str, save: str = '',
     ax  :   matplotlib axes object
     """
 
-    fig = plt.figure(figsize=(page_witdh(), 4))
+    fig = plt.figure(figsize=(page_width(), 4))
     ax = fig.add_subplot()
 
     # Plot the heatmap using seaborn
     limits = limits if limits is not None else (None, None)
-    params = dict(cmap='coolwarm', linewidths=0.1, ax=ax, vmin=limits[0],
+    params = dict(cmap='gray', linewidths=0.1, ax=ax, vmin=limits[0],
                   vmax=limits[1])
     _ = sns_heatmap(df.astype(float), cbar_kws={'label': label}, **params)
 
@@ -180,7 +181,7 @@ def c2_gamma_heatmap(df: pd.DataFrame, label: str, save: str = '',
 
     # plt.tight_layout()
     if save != '':
-        plt.savefig(save, bbox_inches='tight', format='eps', )
+        plt.savefig(save, bbox_inches='tight', format='eps')
     if show:
         plt.show()
     plt.close()
@@ -213,6 +214,9 @@ def time_series_plot(df: pd.DataFrame, ax, xtxt: str = '', ytxt: str = ''):
                 ax.set_xlabel(df.index.name)
             except KeyError:
                 pass
+        except TypeError: 
+            pass
+
     else:
         ax.set_xlabel(xtxt)
 

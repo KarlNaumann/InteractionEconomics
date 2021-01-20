@@ -117,7 +117,7 @@ def convergence_heatmap(data_folder, save_folder):
             for i, df in enumerate(dfs[:2]):
                 name = save_folder + fig_name(b1b2[0], b1b2[1], titles[i])
                 ut.c2_gamma_heatmap(df.mask(mask), labels[i],
-                                    name[:-4] + 'no_lim.eps', freq=5)
+                                    name[:-4] + 'full.eps', freq=5)
 
 
 def mask_check(df):

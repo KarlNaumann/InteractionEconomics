@@ -94,7 +94,7 @@ def oecd_industrial_production(path: str) -> pd.DataFrame:
     data    :   pd.DataFrame
         indexed by date, columns are countries
     """
-    data = pd.read_csv('data/DP_LIVE_10122020161421662.csv', usecols=[0, 5, 6])
+    data = pd.read_csv(path, usecols=[0, 5, 6])
     data = data.pivot(index='TIME', columns='LOCATION')
     data.columns = data.columns.get_level_values(1)
     data.index = pd.to_datetime(data.index, format='%Y-%m')
@@ -146,9 +146,7 @@ def timeseries_plot(data: pd.DataFrame, recessions: bool = True,
     if save == '':
         plt.show()
     else:
-        if '.png' not in save:
-            save += '.png'
-        plt.savefig(save, bbox_inches='tight')
+        plt.savefig(save, bbox_inches='tight', format='eps')
 
 
 if __name__ == '__main__':
