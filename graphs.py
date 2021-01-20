@@ -350,8 +350,8 @@ def cycle_duration_histograms(series, var:list, period:int=2000, bins:int=20, wi
         info = pd.Series(info, index=var)
         name = fig_name(folder, info, 'histograms')
         _, df = cycle_analysis(load_paths(files.index, period))
-        x = _winsorize(df.duration) if winsorize else df.duration
-        histogram(x / 250, save=name, bins=bins)
+        x = _winsorize(df.duration, perc=(0.00,.95)) if winsorize else df.duration
+        histogram(x / 250, save=name+'.eps', bins=bins)
 
 
 def capital_ratio_histograms(series, var:list, period:int=2000, bins:int=20, folder=''):
@@ -359,7 +359,7 @@ def capital_ratio_histograms(series, var:list, period:int=2000, bins:int=20, fol
     for i, v in enumerate(series):
         info, files = v
         info = pd.Series(info, index=var)
-        name = fig_name(folder, info, 'histograms')
+        name = fig_name(folder, info, 'ratio_hist')
         paths = load_paths(files.index, period)
         df = np.vstack([(p.kd/p.ks).dropna().values[:, np.newaxis] for p in paths])
         histogram(df, save=name+'.eps', bins=bins, xtxt=r'$k_d/k_s$')

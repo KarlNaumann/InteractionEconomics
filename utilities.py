@@ -113,9 +113,11 @@ def plot_settings():
 
     # Font sizes
     base = 12
-    rc('axes', titlesize=base)
+    rc('axes', titlesize=base-2)
     rc('legend', fontsize=base-2)
     rc('axes', labelsize=base-2)
+    rc('xtick', labelsize=base-3)
+    rc('ytick', labelsize=base-3)
 
     # Axis styles
     cycles = cycler('linestyle', ['-', '--', ':', '-.'])
@@ -201,11 +203,14 @@ def time_series_plot(df: pd.DataFrame, ax, xtxt: str = '', ytxt: str = ''):
     ax  :   matplotlib axes object
     """
 
-    for series in df.columns:
-        ax.plot(df.loc[:, series], label=series)
+    try:
+        for series in df.columns:
+            ax.plot(df.loc[:, series], label=series)
+        if len(df.columns) > 1:
+            ax.legend(ncol=len(df.columns))
+    except AttributeError:
+        ax.plot(df, label = df.name)
 
-    if len(df.columns) > 1:
-        ax.legend(ncol=len(df.columns))
     if xtxt == '':
         try:
             ax.set_xlabel(''.join(df.index.names))

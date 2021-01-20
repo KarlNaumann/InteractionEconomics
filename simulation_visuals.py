@@ -6,6 +6,8 @@ import utilities as ut
 from demandSolow import DemandSolow
 from phase_diagram import PhaseDiagram
 
+import matplotlib.ticker as ticker
+from matplotlib import pyplot as plt
 
 def analysis_dfs(sims: dict, cat_df: pd.DataFrame, epsilon: float = 1e-5):
     k = list(sims.keys())
@@ -129,49 +131,75 @@ def mask_check(df):
     return df.astype(bool)
 
 
-def demand_limit_graphs(folder):
+def demand_limitcycle_effects(folder):
+
     params = dict(tech0=1, rho=1 / 3, epsilon=1e-5, tau_y=1000, tau_h=25,
-                  tau_s=250, c1=1, c2=3.1e-4, gamma=2000, beta1=1.1, beta2=1.0,
+                  tau_s=250, c1=1, c2=2.5e-4, gamma=4000, beta1=1.1, beta2=1.0,
                   s0=0.05)
-    xi_args = dict(decay=0.2, diffusion=2.5)
+    xi_args = dict(decay=0.2, diffusion=2.0)
 
     start = np.array([1, 0, 1, 0, 0, 0])
     start[0] = params['epsilon'] + params['rho'] * start[2]
 
-    for gamma in [500, 1000, 2000, 4000]:
-        for c2 in [1e-4, 2.5e-4, 4e-4]:
-            for sig in [1.5, 2.5]:
-                params['gamma'] = gamma
-                params['c2'] = c2
-                xi_args['diffusion'] = sig
-                args = (gamma, c2, params['tau_y'], sig)
-                name = 'fig_demand_g{:.0f}_c2_{:.1e}_tau{:.0f}_sig{:.1f}.eps'.format(
-                        *args)
-                ds = DemandSolow(params, xi_args)
-                ds.simulate(start, t_end=2e5, interval=0.1, seed=40, xi=True)
-                ds.phase_diagram(save=folder + name)
-                del ds
+    fig_z, axs_z = plt.subplots(nrows=1, ncols=3, sharey='row')
+    fig_z.set_size_inches(ut.page_width(),ut.page_width()/3)
+
+    for i, g in enumerate([1000, 4000, 7000]):
+        params['gamma'] = g
+        ds = DemandSolow(params, xi_args)
+        path = ds.simulate(start, t_end=1e6, interval=0.1, seed=40, xi=True)
+        points = ds.get_critical_points()
+        axs_z[i].plot(path.s, path.z, linewidth=0.5, alpha=0.5, color='gray')
+        axs_z[i].set_xlabel("Sentiment (s)")
+        #axs_z[i].set_ylabel("Z")
+        axs_z[i].set_xlim(-1, 1)
+        bottom, top = axs_z[i].get_ylim()
+        axs_z[i].yaxis.set_ticks(np.arange(bottom, top, 0.4))
+        axs_z[i].yaxis.set_major_formatter(ticker.FormatStrFormatter('%0.1f'))
+        axs_z[i].set_title(r'$\gamma=${:.0f}'.format(g))
+        for point, v in points.items():
+            if 'unstable' not in v['kind']:
+                axs_z[i].scatter(point[0], point[2], color='black')
+
+    axs_z[0].set_ylabel(r'$z$')
+    name = 'fig_demand_gz_limit_cycles.eps'
+    plt.tight_layout()
+    plt.savefig(folder + name, bbox_inches='tight', format='eps')
 
 
-def demand_limit2(folder):
-    p = dict(tau_h=25, tau_s=250, tau_y=1000, epsilon=1e-5, c1=1,
-             c2=2.5e-4, s0=0, tech0=1, beta1=1.1, beta2=1.0,
-             gamma=2000, phi=1.0, theta=0.2, sigma=2.5)
+def demand_limit_sentiment_effects(folder, T:float=2e5):
+    params = dict(tech0=1, rho=1 / 3, epsilon=1e-5, tau_y=1000, tau_h=25,
+                  tau_s=250, c1=1, c2=2.5e-4, gamma=4000, beta1=1.1, beta2=1.0,
+                  s0=0.05)
+    xi_args = dict(decay=0.2, diffusion=2.0)
 
-    start = np.array([1, 0, 1, 0])
-    start[0] = p['epsilon'] + start[2] / 3
+    start = np.array([1, 0, 1, 0, 0, 0])
+    start[0] = params['epsilon'] + params['rho'] * start[2]
 
-    pd = PhaseDiagram(**p)
-    pd.overview(start, plot=True, t_end=1e5)
+    fig_s, axs_s = plt.subplots(nrows=1, ncols=3, sharey='row')
+    fig_s.set_size_inches(ut.page_width(),ut.page_width()/3)
 
-    for gamma in [500, 2000, 4000]:
-        for c2 in [1e-4, 2.5e-4, 3e-4]:
-            for sig in [1.5, 2.5]:
-                p['gamma'], p['c2'], p['sigma'] = gamma, c2, sig
-                args = (gamma, c2, p['tau_y'], sig)
-                name = 'fig_demand_g{:.0f}_c2_{:.1e}_tau{:.0f}_sig{:.1f}.png'. format(*args)
-                pd = PhaseDiagram(**p)
-                pd.overview(start, plot=True, t_end=1e5, save=folder + name)
+    for i, c2 in enumerate([1e-4, 2.5e-4, 4e-4]):
+        params['c2'] = c2
+        ds = DemandSolow(params, xi_args)
+        path = ds.simulate(start, t_end=T, interval=0.1, seed=21, xi=True)
+        # Sentiment Graph
+        ut.time_series_plot(path.s, axs_s[i], xtxt='Time')
+        # Equilibria
+        points = list(ds.get_critical_points().keys())
+        s_bar = [i[0] for i in points]
+        axs_s[i].axhline(max(s_bar), color='gray', linestyle='--')
+        axs_s[i].axhline(min(s_bar), color='gray', linestyle='--')
+        # Formatting
+        title = r'$c_2=$'+'{:.1f}'.format(c2*1e4)+r'$\times10^{-4}$'
+        axs_s[i].set_title(title)
+        axs_s[i].ticklabel_format(axis='x', style='sci', scilimits=(0, 0))
+        axs_s[i].set_xlim(0, T)
+        axs_s[i].set_ylim(-1, 1)
+
+    name = 'fig_demand_c2_sentiment.eps'
+    plt.tight_layout()
+    plt.savefig(folder + name, bbox_inches='tight', format='eps')
 
 
 if __name__ == '__main__':
