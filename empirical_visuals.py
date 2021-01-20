@@ -149,6 +149,25 @@ def timeseries_plot(data: pd.DataFrame, recessions: bool = True,
         plt.savefig(save, bbox_inches='tight', format='eps')
 
 
+def gdp_component_plot(data_folder:str='data_empirical', fig_folder:str='figures'):
+
+    from datetime import datetime
+    
+    kwargs = dict(index_col=0, parse_dates=['DATE'], 
+                  date_parser=lambda x: datetime.strptime(x, '%Y-%m-%d'))
+
+    vars = dict(Investment='GPDIC1.csv', Consumption='PCECC96.csv', 
+                Government='GCEC1.csv')
+    data = [pd.read_csv(data_folder+v, **kwargs) for i, v in vars.items()]
+    data = pd.concat(data, axis=1)#.pct_change().iloc[1:,:]
+    data.columns = list(vars.keys())
+    #data = data[data.index.year>1980]
+    fig, ax = plt.subplots(1,1)
+    fig.set_size_inches(ut.page_width(), ut.page_width()/3)
+    ut.time_series_plot(data, ax, xtxt='Time', ytxt=r'Quarterly Growth (\%)')
+    recession_shading(ax, data.index[0], data.index[-1])
+    plt.savefig(fig_folder+'fig_empirics.eps', bbox_inches='tight', format='eps')
+
 if __name__ == '__main__':
 
     # ut.plot_settings(cycles=False)
