@@ -18,7 +18,7 @@ def name_gen(p, t_end, folder='computations/', seed=None) -> str:
     parts = [
         'general',
         't{:05.0e}'.format(t_end),
-        'g{:05.0f}'.format(p['gamma']),
+        'g{:05.0f}'.format(p['gamma']), 
         'e{:07.1e}'.format(p['epsilon']),
         'c1_{:03.1f}'.format(p['c1']),
         'c2_{:07.1e}'.format(p['c2']),
@@ -302,13 +302,15 @@ def case_finegrain_asymp():
 def case_paths():
     # Interesting Variations
     b1_variations = dict(
+        epsilon=[0],
         gamma=[4000],
-        c2=[2.5e-4])
+        c2=[2.5e-4],
+        beta2=[1.0])
 
-    seeds = list(range(1, 60))
+    seeds = list(range(1, 50))
 
     # Set up all of the combinations to use
-    folder = 'data_simulations_paths_general_sig2.0/'
+    folder = 'data_simulations_paths_general_eps0/'
     tasks = task_creator(b1_variations, folder=folder, seeds=seeds,
                          t_end=1e6, start=init_val(), kind='path',
                          xi_args=dict(decay=0.2, diffusion=2.0))

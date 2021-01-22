@@ -218,7 +218,7 @@ def supply_limit_plot(params: dict=dict(rho=1 / 3, eps=1e-5, tau_y=1e3, lam=0.2,
 
 # PLOTTING HELPERS
 
-def histogram(x, bins:int=20, win:bool=True, save='', xtxt='Duration (Years)'):
+def histogram(x, bins: int=20, win:bool=True, save='', xtxt='Duration (Years)', show=False, info=False):
 
     fig, ax = plt.subplots(1, 1)
     fig.set_size_inches(ut.page_width(), 3)
@@ -230,12 +230,27 @@ def histogram(x, bins:int=20, win:bool=True, save='', xtxt='Duration (Years)'):
     ax.set_xlabel(xtxt)
     ax.set_ylabel('Proportion')
 
+    if info:
+        textstr = '\n'.join([
+            r'mean ${:.2f}$'.format(np.mean(x)),
+            r'median ${:.2f}$'.format(np.median(x)),
+            r'std. ${:.2f}$'.format(np.std(x))])
+        props = dict(boxstyle='round', facecolor='white', alpha=0.5)
+        ax.text(0.8, 0.8, textstr, transform=ax.transAxes, 
+                verticalalignment='top', bbox=props, fontsize=10)
+
+
     plt.tight_layout()
     if save != '':
         plt.savefig(save, bbox_inches='tight', format='eps')
-        plt.close()
+    if show:
+        plt.show()
     else:
         plt.show()
+
+
+def formatter(value, tick_num):
+        return value / 250
 
 
 def timseries_plot(df, info, stop=int(1e6), save=''):
@@ -250,8 +265,8 @@ def timseries_plot(df, info, stop=int(1e6), save=''):
     axs[0].set_ylabel(r'Log Production $y$')
 
     # Capital Timeseries
-    axs[1].plot(df.ks.iloc[:stop], label=r'$k_s$')
-    axs[1].plot(df.kd.iloc[:stop], label=r'$k_d$')
+    axs[1].plot(df.ks.iloc[:stop], label=r'Supply')
+    axs[1].plot(df.kd.iloc[:stop], label=r'Demand')
     axs[1].ticklabel_format(axis='x', style='sci', scilimits=(0, 0))
     axs[1].xaxis.major.formatter._useMathText = True
     axs[1].legend()
@@ -265,6 +280,7 @@ def timseries_plot(df, info, stop=int(1e6), save=''):
     axs[2].set_xlabel(r'Time $t$ (business days)')
     axs[2].set_ylabel(r'Sentiment $s$')
 
+    fig.align_ylabels()
     plt.tight_layout()
 
     if save != '':
@@ -275,7 +291,7 @@ def timseries_plot(df, info, stop=int(1e6), save=''):
         plt.show()
 
 
-def total_hist(dfs, info, stop=int(1e6), save=''):
+def total_hist(dfs, info, stop=int(1e6), save='', show=False):
 
     ys = [df.y.diff()[df.ks >= df.kd] for df in dfs]
     y = np.vstack([x.values[:, np.newaxis] for x in ys])
@@ -318,10 +334,10 @@ def total_hist(dfs, info, stop=int(1e6), save=''):
 
     if save != '':
         plt.savefig(save, bbox_inches='tight', format='eps')
-        plt.close()
-    else:
-        fig.suptitle('c2 {:.1e} gamma {:.1e}'.format(*info))
+    if show:
         plt.show()
+    else:
+        plt.close()
 
 
 def fig_name(folder, info, kind):
@@ -343,7 +359,7 @@ def fig_name(folder, info, kind):
 
 # FUNCTIONS FOR THE USER
 
-def cycle_duration_histograms(series, var:list, period:int=2000, bins:int=20, winsorize=False, folder=''):
+def cycle_duration_histograms(series, var:list, period:int=2000, bins:int=20, winsorize=False, folder='', show=False, g_info=True):
     """Histogram of business cycle durations per gamnma c2 combination"""
     for i, v in enumerate(series):
         info, files = v
@@ -351,10 +367,59 @@ def cycle_duration_histograms(series, var:list, period:int=2000, bins:int=20, wi
         name = fig_name(folder, info, 'histograms')
         _, df = cycle_analysis(load_paths(files.index, period))
         x = _winsorize(df.duration, perc=(0.00,.95)) if winsorize else df.duration
-        histogram(x / 250, save=name+'.eps', bins=bins)
+        histogram(x / 250, save=name+'.eps', bins=bins, show=show, info=g_info)
+
+def cycle_duration_histogram_mini(series, var:list, period:int=2000, n_bins:int=20, winsorize=False, folder='', show=False, g_info=True):
+    """Histogram of business cycle durations per gamnma c2 combination"""
+    from matplotlib import gridspec
+    for i, v in enumerate(series):
+        info, files = v
+        info = pd.Series(info, index=var)
+        save = fig_name(folder, info, 'histograms')
+        save=''
+        _, df = cycle_analysis(load_paths(files.index, period))
+        v = df.values
+        dur_exp = pd.Series(v[:, 1] - v[:, 0])
+        dur_rec = pd.Series(v[1:, 0] - v[:-1, 1])
+
+        fig = plt.figure()
+        gs = gridspec.GridSpec(2, 3)
+        fig.set_size_inches(ut.page_width(), 3)
+        
+        # Main Business Cycle Duration Graph
+        ax_main = fig.add_subplot(gs[:, :2])
+        x = _winsorize(df.duration, perc=(0.00,.95)) if winsorize else df.duration
+        n, bins = np.histogram(x / 250, bins=n_bins)
+        n = n / x.shape[0]
+        ax_main.hist(bins[:-1], bins, weights=n, edgecolor='black')
+        ax_main.set_xlabel('Duration (Years)')
+        ax_main.set_ylabel('Proportion')
+        
+        ax_exp = fig.add_subplot(gs[1, 2])
+        x = _winsorize(dur_exp[dur_exp>0], perc=(0.00, .95)) if winsorize else dur_exp[dur_exp>0]
+        n, bins = np.histogram(x / 250, bins=n_bins)
+        n = n / x.shape[0]
+        ax_exp.hist(bins[:-1], bins, weights=n, edgecolor='black')
+        ax_exp.set_xlabel('Expansion Duration (Years)')
+
+        ax_rec = fig.add_subplot(gs[0, 2])
+        x = _winsorize(dur_rec[dur_rec>0], perc=(0.00, .95)) if winsorize else dur_rec[dur_rec>0]
+        n, bins = np.histogram(x / 250, bins=n_bins)
+        n = n / x.shape[0]
+        ax_rec.hist(bins[:-1], bins, weights=n, edgecolor='black')
+        ax_rec.set_xlabel('Recession Duration (Years)')
+
+        plt.tight_layout()
+        if save != '':
+            plt.savefig(save, bbox_inches='tight', format='eps')
+        if show:
+            plt.show()
+        else:
+            plt.show()
 
 
-def capital_ratio_histograms(series, var:list, period:int=2000, bins:int=20, folder=''):
+
+def capital_ratio_histograms(series, var:list, period:int=2000, bins:int=20, folder='', show=False, g_info=True):
     """Histogram of the capital supply to demand ratio per gamnma c2 combination"""
     for i, v in enumerate(series):
         info, files = v
@@ -362,7 +427,7 @@ def capital_ratio_histograms(series, var:list, period:int=2000, bins:int=20, fol
         name = fig_name(folder, info, 'ratio_hist')
         paths = load_paths(files.index, period)
         df = np.vstack([(p.kd/p.ks).dropna().values[:, np.newaxis] for p in paths])
-        histogram(df, save=name+'.eps', bins=bins, xtxt=r'$k_d/k_s$')
+        histogram(df, save=name+'.eps', bins=bins, xtxt=r'$k_d/k_s$', show=show, info=g_info)
 
 
 def plot_all_timeseries(series, vars:list, period:int=2000, folder:str=''):
@@ -378,15 +443,119 @@ def plot_all_timeseries(series, vars:list, period:int=2000, folder:str=''):
             timseries_plot(df, info, stop=int(4e5), save=save+'.eps')
 
 
-def plot_bimodal_histograms(series, vars:list, period:int=2000, folder:str=''):
+def plot_bimodal_histograms(series, vars:list, period:int=2000, folder:str='', show=False):
     """ Plot histograms of sentiment, production growth and capital growth """
     for i, v in enumerate(series):
         info, files = v
         info = pd.Series(info, index=vars)
         paths = load_paths(files.index, int(period))
         save = fig_name(folder, info, 'timeseries_hist')
-        total_hist(paths, info, save = save+'.eps')
+        total_hist(paths, info, save = save+'.eps', show=show)
 
+
+
+def plot_test1(series, vars:list, period:int=2000, folder:str=''):
+    """ Plot histograms of sentiment, production growth and capital growth """
+    for i, v in enumerate(series):
+        info, files = v
+        info = pd.Series(info, index=vars)
+        paths = load_paths(files.index, int(period))
+        save = fig_name(folder, info, 'timeseries_hist')
+        
+        # General figure of a path
+        fig, axs = plt.subplots(1,2)
+        fig.set_size_inches(10,5)
+
+        # Strength of Terms in Dynamical Equations
+        axs[0].set_xlabel(r'Strength of terms in $h$')
+
+        ys = [4000*df.y.diff() for df in paths]
+        y = np.vstack([x.values[:, np.newaxis] for x in ys])
+        axs[0].hist(y, bins=50, edgecolor='black', color='white', label=r'$\gamma\dot{y}$')
+        
+        xis = [df.xi for df in paths]
+        xi = np.vstack([x.values[:, np.newaxis] for x in xis])
+        axs[0].hist(xi, bins=50, edgecolor='orange', color='orange', alpha=0.5, label=r'$\xi_t$')
+
+        axs[0].legend()
+
+        # Mini-histogram of growth rates
+        axs[1].set_xlabel(r'Strength of terms in $s$')
+
+        b1s = [1.1*df.s for df in paths]
+        b1s = np.vstack([x.values[:, np.newaxis] for x in b1s])
+        axs[1].hist(b1s, bins=50, edgecolor='black', color='white', label=r'$\beta_1s$')
+
+        
+        b2h = [1.0*df.h for df in paths]
+        b2h = np.vstack([x.values[:, np.newaxis] for x in b2h])
+        axs[1].hist(b2h, bins=50, edgecolor='green', alpha=0.5, color='red', label=r'$h$')
+        
+        b2h = [2.0*df.h for df in paths]
+        b2h = np.vstack([x.values[:, np.newaxis] for x in b2h])
+        axs[1].hist(b2h, bins=50, edgecolor='orange', alpha=0.5, color='orange', label=r'$2h$')
+        
+        axs[1].legend()
+        
+        plt.tight_layout()
+        save=''
+        if save != '':
+            plt.savefig(save, bbox_inches='tight', format='png')
+            plt.close()
+        else:
+            fig.suptitle('c2 {:.1e} gamma {:.1e}'.format(*info))
+            plt.show()
+
+
+def plot_test2(series, vars:list, period:int=1e5, folder:str='', n:int=5):
+    """ Timeseries plot of all simulations including overall histograms"""
+    for i, v in enumerate(series):
+        info, files = v
+        info = pd.Series(info, index=vars)
+        paths = load_paths(files.index, int(2000))
+
+        fig, axs = plt.subplots(n,2)
+        fig.set_size_inches(10,10)
+        
+        for i, df in enumerate(paths[:n]):
+            period = df.shape[0]
+            # Sentiment timeseries
+            axs[i,0].plot(df.s.iloc[:period])
+            axs[i,0].xaxis.set_major_formatter(formatter)
+            #axs[i,0].ticklabel_format(axis='x', style='sci', scilimits=(0, 0))
+            axs[i,0].xaxis.major.formatter._useMathText = True
+            axs[i,0].set_xlabel(r'Time $t$ (business days)')
+            axs[i,0].set_ylabel(r'Sentiment $s$')
+
+            # Capital Timeseries
+            axs[i,1].plot(df.ks.iloc[:period], label=r'$k_s$')
+            axs[i,1].plot(df.kd.iloc[:period], label=r'$k_d$')
+            axs[i,1].ticklabel_format(axis='x', style='sci', scilimits=(0, 0))
+            axs[i,1].xaxis.major.formatter._useMathText = True
+            axs[i,1].legend()
+            axs[i,1].set_xlabel(r'Time $t$ (business days)')
+            axs[i,1].set_ylabel(r'Log Capital')
+
+        plt.tight_layout()
+
+        save = folder + 'fig_simulation_dynamics.png'
+        
+        if folder != '':
+            plt.savefig(save, bbox_inches='tight', format='png')
+            plt.close()
+        else:
+            plt.show()
+        
+
+def test3(series, var:list, period:int=2000, bins:int=20, winsorize=False, folder='', show=False, g_info=True):
+    """Histogram of business cycle durations per gamnma c2 combination"""
+    for i, v in enumerate(series):
+        info, files = v
+        info = pd.Series(info, index=var)
+        name = fig_name(folder, info, 'histograms')
+        _, df = cycle_analysis(load_paths(files.index, period))
+        x = _winsorize(df.duration, perc=(0.00,.95)) if winsorize else df.duration
+        histogram(x / 250, save='', bins=bins, show=show, info=g_info)
 
 if __name__ == '__main__':
 

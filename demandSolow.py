@@ -102,9 +102,9 @@ class DemandSolow(object):
                 ax[1].axhline(point[0], color='red', linestyle='--')
         ax[1].axhline(0, color='black', linestyle='--', linewidth=0.5)
         # Add production to the plot
-        ax2 = ax[1].twinx()
-        ax2.plot(vals.y, color='green')
-        ax2.set_ylabel("Log Production (y)")
+        #ax2 = ax[1].twinx()
+        #ax2.plot(vals.y, color='green')
+        #ax2.set_ylabel("Log Production (y)")
         # Sentiment versus Z
         ax[2].plot(vals.s, vals.z, color='blue', linewidth=0.5)
         ax[2].set_xlabel("Sentiment (s)")

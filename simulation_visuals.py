@@ -133,7 +133,7 @@ def mask_check(df):
 
 def demand_limitcycle_effects(folder):
 
-    params = dict(tech0=1, rho=1 / 3, epsilon=1e-5, tau_y=1000, tau_h=25,
+    params = dict(tech0=1, rho=1 / 3, epsilon=2.5e-5, tau_y=1000, tau_h=25,
                   tau_s=250, c1=1, c2=2.5e-4, gamma=4000, beta1=1.1, beta2=1.0,
                   s0=0.05)
     xi_args = dict(decay=0.2, diffusion=2.0)
@@ -167,8 +167,8 @@ def demand_limitcycle_effects(folder):
     plt.savefig(folder + name, bbox_inches='tight', format='eps')
 
 
-def demand_limit_sentiment_effects(folder, T:float=2e5):
-    params = dict(tech0=1, rho=1 / 3, epsilon=1e-5, tau_y=1000, tau_h=25,
+def demand_limit_sentiment_effects(folder, T:float=3e5):
+    params = dict(tech0=1, rho=1 / 3, epsilon=2.5e-5, tau_y=1000, tau_h=25,
                   tau_s=250, c1=1, c2=2.5e-4, gamma=4000, beta1=1.1, beta2=1.0,
                   s0=0.05)
     xi_args = dict(decay=0.2, diffusion=2.0)
